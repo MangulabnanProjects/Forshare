@@ -69,14 +69,21 @@
         .theme-dropdown option { background: #161821 !important; color: #ffffff !important; }
         .theme-dropdown option[value="_NEW_"] { color: #00d2ff !important; font-weight: bold !important; }
         
+        .mobile-menu-btn { display: none; position: absolute; top: 15px; left: 15px; z-index: 90; background: #00d2ff; color: #000; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 5px 15px rgba(0,210,255,0.4); align-items: center; gap: 8px; }
+        
         @media (max-width: 900px) {
-            body { flex-direction: column; overflow-y: auto; }
-            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #2a2d3d; height: auto; }
-            .workspace-container { height: 700px; flex-grow: 0; flex-shrink: 0; }
+            body { flex-direction: row; overflow: hidden; }
+            .sidebar { position: absolute; left: 0; top: 0; height: 100vh; transform: translateX(-100%); transition: transform 0.3s; z-index: 100; max-height: none; width: 85%; max-width: 380px; }
+            .sidebar.open { transform: translateX(0); }
+            .workspace-container { width: 100vw; height: 100vh; flex-grow: 1; }
+            .mobile-menu-btn { display: flex; }
         }
     </style>
 </head>
 <body>
+    <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">
+        <i data-feather="menu"></i> Settings
+    </button>
 
     <!-- SIDEBAR CONTROLS -->
     <div class="sidebar">

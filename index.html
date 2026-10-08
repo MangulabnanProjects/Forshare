@@ -179,8 +179,19 @@
             .film-frame { width: 40px !important; height: 26px !important; margin-right: 5px !important; }
             .film-strip-top { top: 10px !important; }
             .film-strip-bottom { bottom: 10px !important; }
-            .sidebar-left, .sidebar-right { width: 100%; position: absolute; height: 100%; z-index: 50; }
-            .floating-capture-controls { width: 100%; justify-content: center; bottom: 20px; padding: 15px 10px; gap: 15px; }
+            
+            /* Bottom Sheet Sidebars for Mobile */
+            .sidebar-left, .sidebar-right { width: 100%; position: absolute; height: 50vh; z-index: 50; bottom: 0; left: 0; top: auto; border: none; border-top: 1px solid #333; }
+            .sidebar-left.hidden, .sidebar-right.hidden { transform: translateY(100%); }
+            
+            /* Move Toggle Buttons to Top of Bottom Sheet */
+            .toggle-left-btn, .toggle-right-btn { top: -45px; width: 60px; height: 45px; border-radius: 12px 12px 0 0; border: 1px solid #333; border-bottom: none; background: #111; }
+            .toggle-left-btn { right: auto; left: 20px; }
+            .toggle-right-btn { left: auto; right: 20px; }
+            .toggle-left-btn svg { transform: rotate(-90deg); }
+            .toggle-right-btn svg { transform: rotate(90deg); }
+            
+            .floating-capture-controls { width: 100%; justify-content: center; bottom: 50px; padding: 15px 10px; gap: 15px; }
             .icon-btn { width: 50px; height: 50px; font-size: 1.5rem; }
             .video-container { border-radius: 0; border: none; height: 100vh; display: flex; align-items: center; justify-content: center;}
             .main-content { padding: 0; }
