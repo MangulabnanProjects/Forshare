@@ -68,6 +68,12 @@
         .theme-dropdown { color: #ffffff !important; }
         .theme-dropdown option { background: #161821 !important; color: #ffffff !important; }
         .theme-dropdown option[value="_NEW_"] { color: #00d2ff !important; font-weight: bold !important; }
+        
+        @media (max-width: 900px) {
+            body { flex-direction: column; overflow-y: auto; }
+            .sidebar { width: 100%; border-right: none; border-bottom: 1px solid #2a2d3d; max-height: 50vh; }
+            .workspace-container { min-height: 50vh; }
+        }
     </style>
 </head>
 <body>
