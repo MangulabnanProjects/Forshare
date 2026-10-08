@@ -295,8 +295,8 @@
                     const h = parseInt(document.getElementById('canvasH').value) || 1184;
                     
                     // Compress the overlay frame so it doesn't blow up localStorage
-                    // Maintain aspect ratio while fitting within 1040x1184 max
-                    const scale = Math.min(1040 / img.width, 1184 / img.height, 1);
+                    // Maintain aspect ratio while fitting within the canvas dimensions
+                    const scale = Math.min(w / img.width, h / img.height, 1);
                     canvas.width = img.width * scale;
                     canvas.height = img.height * scale;
                     
