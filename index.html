@@ -168,24 +168,29 @@
         }
         
         @media (max-width: 900px) {
-            .welcome-content { padding: 30px; }
-            h1 { font-size: 2.5rem !important; }
-            h3 { font-size: 1.8rem !important; margin-bottom: 30px !important; }
-            .instructions-container { flex-direction: column !important; align-items: center !important; overflow-y: auto; max-height: 40vh; padding-bottom: 20px;}
-            .instructions-container > div { text-align: center !important; margin-bottom: 15px; }
-            .elegant-divider { width: 80% !important; height: 1px !important; margin: 15px 0 !important; }
-            .film-frame { width: 60px; height: 40px; }
+            #welcomeScreen { padding: 60px 20px !important; justify-content: flex-start !important; gap: 20px; }
+            h1 { font-size: 2.2rem !important; margin-bottom: 5px !important; }
+            h3 { font-size: 1.5rem !important; margin-bottom: 15px !important; }
+            .instructions-container { flex-direction: column !important; align-items: center !important; overflow-y: visible !important; max-height: none !important; margin-bottom: 20px; }
+            .instructions-container > div { text-align: center !important; margin-bottom: 5px; }
+            .instructions-container span { font-size: 1rem !important; line-height: 1.2 !important; }
+            .instructions-container strong { margin-bottom: 5px !important; font-size: 1.2rem !important; }
+            .elegant-divider { width: 40% !important; height: 1px !important; margin: 10px 0 !important; }
+            .film-frame { width: 40px !important; height: 26px !important; margin-right: 5px !important; }
+            .film-strip-top { top: 10px !important; }
+            .film-strip-bottom { bottom: 10px !important; }
             .sidebar-left, .sidebar-right { width: 100%; position: absolute; height: 100%; z-index: 50; }
-            .floating-capture-controls { width: 95%; justify-content: center; bottom: 20px; padding: 10px; gap: 15px; }
-            .icon-btn { width: 45px; height: 45px; }
+            .floating-capture-controls { width: 100%; justify-content: center; bottom: 20px; padding: 15px 10px; gap: 15px; }
+            .icon-btn { width: 50px; height: 50px; font-size: 1.5rem; }
             .video-container { border-radius: 0; border: none; height: 100vh; display: flex; align-items: center; justify-content: center;}
             .main-content { padding: 0; }
-            .floating-anchor-btn { left: 80px; top: 15px; font-size: 0.75rem; padding: 6px 10px; }
-            #countdownOverlay { font-size: 100px; }
-            #folderScreen h1 { font-size: 2rem !important; margin-top: 20px !important;}
-            #folderScreen button { bottom: 20px !important; left: 20px !important; padding: 10px 20px !important; }
-            .layout-menu { width: 150px; }
-            .theme-grid { grid-template-columns: 1fr; }
+            .floating-anchor-btn { left: 50%; transform: translateX(-50%); top: 20px; font-size: 0.85rem; padding: 8px 15px; }
+            #countdownOverlay { font-size: 80px; }
+            #folderScreen h1 { font-size: 1.8rem !important; margin-top: 50px !important;}
+            #folderScreen p { font-size: 1rem !important; margin-bottom: 20px !important; }
+            #folderScreen button { bottom: 50px !important; left: 50% !important; transform: translateX(-50%); padding: 12px 30px !important; }
+            .layout-menu { width: 180px; }
+            .theme-grid { grid-template-columns: 1fr; gap: 15px; max-height: 60vh; padding: 10px; }
         }
     </style>
     <div id="screenBackdrop" class="fullscreen-overlay" style="background: #7d1c24; z-index: 9998; pointer-events: none;"></div>
