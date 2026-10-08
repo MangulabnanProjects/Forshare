@@ -1107,9 +1107,13 @@
         const canvasElement = document.getElementById('canvasElement');
         const canvasCtx = canvasElement.getContext('2d');
         
+        const isMobile = window.innerWidth <= 900;
+        
         async function autoStartCamera() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: {ideal:1920}, height:{ideal:1080} } });
+                const idealW = isMobile ? 640 : 1920;
+                const idealH = isMobile ? 480 : 1080;
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: {ideal: idealW}, height:{ideal: idealH}, facingMode: "user" } });
                 videoElement.srcObject = stream;
                 videoElement.onloadedmetadata = () => {
                     canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
@@ -1120,7 +1124,8 @@
         autoStartCamera();
 
         const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
-        faceMesh.setOptions({ maxNumFaces: 4, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        // refineLandmarks (iris tracking) is heavy; disable on mobile to prevent lag
+        faceMesh.setOptions({ maxNumFaces: 4, refineLandmarks: !isMobile, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
         
         faceMesh.onResults((results) => {
             if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
