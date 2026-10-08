@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photobooth AI - Face Tracking Anchors</title>
+    
+    <!-- AI Models -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { display: flex; background-color: #0a0b0e; background-image: radial-gradient(#2a2d3d 1px, transparent 1px); background-size: 20px 20px; color: #ffffff; font-family: 'Inter', -apple-system, sans-serif; margin: 0; height: 100vh; overflow: hidden; }
+        
+        .fullscreen-overlay { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; opacity: 1; visibility: visible; transform: scale(1) translateY(0); transition: all 1.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .fullscreen-overlay.hidden { opacity: 0; pointer-events: none; visibility: hidden; transform: scale(1.02) translateY(20px); }
+        .welcome-content { background: rgba(0,0,0,0.8); padding: 60px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 30px 100px rgba(0,0,0,0.9); backdrop-filter: blur(10px); cursor: pointer; transition: 0.3s; }
+        .welcome-content:hover { transform: scale(1.02); border-color: rgba(0, 210, 255, 0.4); }
+        .theme-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; width: 80%; max-width: 1400px; margin-top: 40px; max-height: 70vh; overflow-y: auto; padding: 20px; }
+        .theme-card { background: #111; border: 1px solid #333; border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.3s; display: flex; flex-direction: column; align-items: center; }
+        .theme-card:hover { transform: scale(1.05) translateY(-10px); border-color: #00d2ff; box-shadow: 0 20px 40px rgba(0, 210, 255, 0.2); }
+        .theme-name { margin-top: 20px; font-size: 1.4rem; font-weight: bold; }
+        .theme-meta { color: #888; font-size: 0.9rem; margin-top: 5px; }
+        
+        .sidebar-left, .sidebar-right { width: 350px; background: #000000; display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); position: relative; z-index: 40; }
+        .sidebar-left { border-right: 1px solid #222; }
+        .sidebar-right { border-left: 1px solid #222; }
+        .sidebar-left.hidden { transform: translateX(-100%); position: absolute; left: 0; height: 100%; }
+        .sidebar-right.hidden { transform: translateX(100%); position: absolute; right: 0; height: 100%; }
+        
+        .toggle-left-btn, .toggle-right-btn { position: absolute; top: 20px; width: 40px; height: 40px; background: #111; border: 1px solid #222; color: #aaa; cursor: pointer; z-index: 40; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .toggle-left-btn { right: -40px; border-left: none; border-radius: 0 8px 8px 0; }
+        .toggle-right-btn { left: -40px; border-right: none; border-radius: 8px 0 0 8px; }
+        .toggle-left-btn:hover, .toggle-right-btn:hover { color: #fff; background: #1a1a1a; }
+
+        .sidebar-header { padding: 25px; border-bottom: 1px solid #222; display: flex; justify-content: space-between; align-items: center; }
+        .sidebar-header h2 { margin: 0; font-size: 1.1rem; font-weight: 500; letter-spacing: 0.5px; color: #fff; }
+        .close-sidebar-btn { background: transparent; border: none; color: #666; cursor: pointer; transition: 0.2s; padding: 0; display: flex; }
+        .close-sidebar-btn:hover { color: #fff; }
+        
+        .sidebar-content { padding: 25px; overflow-y: auto; flex-grow: 1; }
+        .category-title { color: #555; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; margin-top: 25px; margin-bottom: 15px; }
+        .category-title:first-child { margin-top: 0; }
+        .emoji-grid-layout { display: flex; flex-wrap: wrap; gap: 10px; }
+        
+        .item-btn { font-size: 1.8rem; width: 55px; height: 55px; background: #1a1a1a; border: 1px solid #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; color: #888; }
+        .item-btn:hover { background: #222; border-color: #555; }
+        .item-btn.active { border-color: #fff; background: #fff; color: #000; }
+        
+        .bg-color-btn { width: 100%; height: 60px; border-radius: 10px; border: 1px solid #333; cursor: pointer; margin-bottom: 12px; transition: 0.2s; }
+        .bg-color-btn:hover { border-color: #666; }
+        .bg-color-btn.active { border-color: #fff; border-width: 2px; }
+
+        /* FACE TABS UI */
+        .face-tabs-container { display: flex; gap: 10px; margin-bottom: 15px; overflow-x: auto; padding-bottom: 10px; border-bottom: 1px solid #333; }
+        .face-tabs-container.hidden { display: none !important; }
+        .face-tab { background: #222; border: 1px solid #444; color: #aaa; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold; }
+        .face-tab.active { background: #00d2ff; color: black; border-color: #00d2ff; }
+
+        /* MAIN CENTER AREA */
+        .main-content { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; overflow-y: auto; position: relative; background: transparent; }
+        .video-container { position: relative; width: 100%; max-width: 1200px; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid #222; }
+        video { display: none; }
+        canvas { width: 100%; display: block; transform: scaleX(-1); }
+
+        .fade-element { transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); opacity: 1; transform: translateY(0); }
+        .fade-element.hide-controls { opacity: 0; pointer-events: none; transform: translateY(20px); }
+
+        .floating-debug-btn { position: absolute; top: 20px; right: 20px; z-index: 30; background: rgba(0,0,0,0.5); color: #aaa; border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 6px; font-size: 0.75rem; cursor: pointer; backdrop-filter: blur(10px); }
+        .floating-debug-btn:hover { background: rgba(0,0,0,0.8); color: white; }
+        
+        .floating-anchor-btn { position: absolute; top: 20px; left: 100px; z-index: 30; background: rgba(0,0,0,0.5); color: #aaa; border: 1px solid rgba(255,255,255,0.1); padding: 8px 12px; border-radius: 6px; font-size: 0.85rem; cursor: pointer; backdrop-filter: blur(10px); font-weight: bold; transition: 0.2s;}
+        .floating-anchor-btn.active { background: #00d2ff; color: black; border-color: #00d2ff; box-shadow: 0 0 15px rgba(0, 210, 255, 0.4); }
+
+        #countdownOverlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 160px; font-weight: 300; color: white; text-shadow: 0 4px 30px rgba(0,0,0,0.5); display: none; z-index: 35; font-family: -apple-system, sans-serif; }
+
+        /* CAPTURE CONTROLS */
+        .floating-capture-controls { position: absolute; bottom: 35px; left: 50%; transform: translateX(-50%) translateY(0); display: flex; gap: 24px; padding: 12px 24px; border-radius: 100px; background: rgba(15, 15, 15, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.08); z-index: 30; transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); opacity: 1; }
+        .floating-capture-controls.hide-controls { opacity: 0; transform: translateX(-50%) translateY(30px); pointer-events: none; }
+        
+        .icon-btn { width: 56px; height: 56px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.3s; }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); transform: scale(1.08); }
+        .icon-btn svg { width: 22px; height: 22px; stroke-width: 1.5; }
+        
+        .timer-btn.active, .photo-btn { background: #fff; color: #000; border-color: #fff; }
+        .photo-btn:hover { background: #e0e0e0; border-color: #e0e0e0; }
+        .video-btn { color: #ff3b30; border-color: rgba(255, 59, 48, 0.3); }
+        .video-btn:hover { background: rgba(255, 59, 48, 0.1); border-color: #ff3b30; }
+
+        /* LAYOUT MENU */
+        .layout-selector { position: absolute; top: 20px; left: 20px; z-index: 30; transition: opacity 0.3s; }
+        .layout-btn-icon { width: 48px; height: 48px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.7); color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(10px); transition: 0.2s; }
+        .layout-btn-icon:hover { background: rgba(0,0,0,0.9); transform: scale(1.05); }
+        .layout-menu { position: absolute; top: 60px; left: 0; background: rgba(15,15,15,0.95); backdrop-filter: blur(10px); border-radius: 12px; padding: 10px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 5px; width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); }
+        .layout-menu.hidden { display: none; }
+        .layout-menu button { background: transparent; border: none; color: white; padding: 12px; text-align: left; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.95rem; }
+        .layout-menu button:hover { background: rgba(255,255,255,0.1); }
+        .layout-menu button.active-layout { background: rgba(255,255,255,0.2); font-weight: bold; }
+
+        .mini-preview { position: absolute; top: 80px; left: 20px; width: 110px; background: rgba(15,15,15,0.8); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 8px; cursor: pointer; z-index: 25; transition: 0.3s; overflow: hidden; }
+        .mini-preview:hover { transform: scale(1.05); border-color: white; }
+        .mini-preview.hidden { display: none !important; }
+        
+        .full-collage-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.95); backdrop-filter: blur(20px); z-index: 100; display: flex; align-items: center; justify-content: center; flex-direction: column; overflow-y: auto; padding: 40px 0; }
+        .full-collage-modal.hidden { display: none !important; }
+        .collage-content { text-align: center; width: 100%; }
+        .collage-content h2 { margin: 0 0 5px 0; font-size: 1.8rem; }
+        .collage-content p { color: #aaa; margin: 0 0 20px 0; }
+        .full-collage-grid { background: white; padding: 20px; border-radius: 8px; margin: 0 auto; width: 90%; max-width: 450px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        /* DYNAMIC GRID CLASSES */
+        .layout-strip2, .layout-strip3, .layout-strip4, .layout-strip5 { display: flex; flex-direction: column; gap: 6px; }
+        .layout-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .layout-grid3 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .layout-grid3 > div:nth-child(1) { grid-column: span 2; }
+        .layout-grid4 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .layout-grid5 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .layout-grid5 > div:nth-child(1) { grid-column: span 2; }
+        .slot { width: 100%; aspect-ratio: 16/9; background: #eee; position: relative; overflow: hidden; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #888; font-size: 1.2rem; font-weight: 500;}
+        .slot img { width: 100%; height: 100%; object-fit: cover; }
+        .full-collage-grid .slot.has-image { cursor: pointer; transition: 0.2s; }
+        .full-collage-grid .slot.has-image:hover { transform: scale(1.02); z-index: 10; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .mini-preview .slot { font-size: 0.8rem; background: #333; }
+        .modal-controls { display: flex; gap: 15px; justify-content: center; margin-top: 30px; padding-bottom: 20px;}
+        .primary-btn, .secondary-btn { padding: 15px 30px; font-size: 1.1rem; border-radius: 30px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .primary-btn { background: #fff; color: #000; }
+        .primary-btn:hover { background: #e0e0e0; transform: scale(1.05); }
+        .secondary-btn { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.2); }
+        .secondary-btn:hover { background: rgba(255,255,255,0.2); }
+
+    </style>
+</head>
+<body>
+
+    <!-- WELCOME SCREEN -->
+    <style>
+        @keyframes filmMarqueeLeft { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        @keyframes filmMarqueeRight { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+        
+        .film-strip-top, .film-strip-bottom {
+            position: absolute; left: 0; right: 0; height: 80px; background-color: #000;
+            overflow: hidden; z-index: 10; display: flex; align-items: center;
+        }
+        .film-strip-top { top: 0; border-bottom: 4px solid #222; }
+        .film-strip-bottom { bottom: 0; border-top: 4px solid #222; }
+        
+        .film-track {
+            display: flex; align-items: center; width: max-content;
+        }
+        .film-track.left { animation: filmMarqueeLeft 30s linear infinite; }
+        .film-track.right { animation: filmMarqueeRight 30s linear infinite; }
+        
+        .film-frame {
+            width: 90px; height: 60px; background: #fff; margin-right: 10px; flex-shrink: 0;
+            overflow: hidden; display: flex; justify-content: center; align-items: center;
+        }
+        .film-frame img {
+            width: 100%; height: 100%; object-fit: cover;
+        }
+        
+        .elegant-divider {
+            width: 1px; background: rgba(244,235,208,0.3); margin: 0 25px; position: relative; display: flex; align-items: center; justify-content: center;
+        }
+        .elegant-divider::after {
+            content: ""; width: 8px; height: 8px; background: #f4ebd0; transform: rotate(45deg);
+        }
+    </style>
+    <div id="screenBackdrop" class="fullscreen-overlay" style="background: #7d1c24; z-index: 9998; pointer-events: none;"></div>
+    <div id="welcomeScreen" class="fullscreen-overlay" style="display: flex; flex-direction: column; justify-content: space-between; padding: 12vh 6vw; background: #7d1c24; font-family: 'Inter', sans-serif;">
+        <div class="film-strip-top"><div class="film-track right" id="welcomeTrackTop"></div></div>
+        <div class="film-strip-bottom"><div class="film-track left" id="welcomeTrackBottom"></div></div>
+        
+        <!-- TOP: TITLE -->
+        <div style="z-index: 20; text-align: center; margin-top: 40px;">
+            <h1 style="font-size: 4rem; margin: 0; color: #f4ebd0; font-weight: 900; letter-spacing: 4px; text-transform: uppercase;">PHOTOBOOTH</h1>
+            <p style="font-size: 1.2rem; margin: 10px 0 0 0; color: #000000; font-style: italic;">capture your best moments</p>
+        </div>
+        
+        <!-- MIDDLE: INSTRUCTIONS -->
+        <div style="flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; z-index: 20;">
+            <h3 style="margin-top: 0; font-size: 2.5rem; color: #f4ebd0; margin-bottom: 60px; text-align: center; font-weight: bold; letter-spacing: 6px;">INSTRUCTIONS</h3>
+            
+            <div style="display: flex; flex-direction: row; justify-content: center; align-items: stretch; color: #f4ebd0; max-width: 1400px; width: 100%;">
+                
+                <!-- STEP 1 -->
+                <div style="flex: 1; text-align: left; padding: 0 10px;">
+                    <strong style="font-size: 1.4rem; display: block; margin-bottom: 20px; letter-spacing: 2px; color: #f4ebd0;">STEP 1</strong>
+                    <span style="font-size: 1.2rem; line-height: 1.6; color: #000000;">tap to start<br>and choose an<br>event folder</span>
+                </div>
+
+                <div class="elegant-divider"></div>
+
+                <!-- STEP 2 -->
+                <div style="flex: 1; text-align: left; padding: 0 10px;">
+                    <strong style="font-size: 1.4rem; display: block; margin-bottom: 20px; letter-spacing: 2px; color: #f4ebd0;">STEP 2</strong>
+                    <span style="font-size: 1.2rem; line-height: 1.6; color: #000000;">click next,<br>swap out your<br>background</span>
+                </div>
+
+                <div class="elegant-divider"></div>
+
+                <!-- STEP 3 -->
+                <div style="flex: 1; text-align: left; padding: 0 10px;">
+                    <strong style="font-size: 1.4rem; display: block; margin-bottom: 20px; letter-spacing: 2px; color: #f4ebd0;">STEP 3</strong>
+                    <span style="font-size: 1.2rem; line-height: 1.6; color: #000000;">select digital<br>hats, glasses,<br>and masks</span>
+                </div>
+
+                <div class="elegant-divider"></div>
+
+                <!-- STEP 4 -->
+                <div style="flex: 1; text-align: left; padding: 0 10px;">
+                    <strong style="font-size: 1.4rem; display: block; margin-bottom: 20px; letter-spacing: 2px; color: #f4ebd0;">STEP 4</strong>
+                    <span style="font-size: 1.2rem; line-height: 1.6; color: #000000;">enable per-face<br>so everyone gets<br>unique props</span>
+                </div>
+
+                <div class="elegant-divider"></div>
+
+                <!-- STEP 5 -->
+                <div style="flex: 1; text-align: left; padding: 0 10px;">
+                    <strong style="font-size: 1.4rem; display: block; margin-bottom: 20px; letter-spacing: 2px; color: #f4ebd0;">STEP 5</strong>
+                    <span style="font-size: 1.2rem; line-height: 1.6; color: #000000;">choose your<br>timer, pose,<br>and capture!</span>
+                </div>
+
+            </div>
+        </div>
+        
+        <!-- BOTTOM: START BUTTON -->
+        <div style="margin-bottom: 30px; z-index: 20; text-align: center;">
+            <button onclick="showFolders()" style="background: #4a1015; color: #f4ebd0; border: none; padding: 15px 70px; font-size: 1.2rem; border-radius: 40px; cursor: pointer; font-weight: bold; letter-spacing: 2px; transition: background 0.2s;" onmouseover="this.style.background='#360b0f'" onmouseout="this.style.background='#4a1015'">
+                START
+            </button>
+        </div>
+    </div>
+
+    <!-- FOLDER SELECTION SCREEN -->
+    <div id="folderScreen" class="fullscreen-overlay hidden" style="background: #7d1c24; font-family: 'Inter', sans-serif;">
+        <div class="film-strip-top"><div class="film-track right" id="folderTrackTop"></div></div>
+        <div class="film-strip-bottom"><div class="film-track left" id="folderTrackBottom"></div></div>
+        
+        <h1 style="margin-top: 40px; font-size: 3.5rem; color: #f4ebd0; font-weight: 900; letter-spacing: 4px; z-index: 20; text-transform: uppercase;">CHOOSE AN EVENT</h1>
+        <p style="color: rgba(244,235,208,0.8); font-size: 1.2rem; font-style: italic; margin-bottom: 40px; z-index: 20;">Select your event theme to begin</p>
+        
+        <div id="folderGrid" class="theme-grid" style="z-index: 20;"></div>
+        
+        <button onclick="showWelcome()" style="background: #4a1015; color: #f4ebd0; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 30px; cursor: pointer; font-weight: bold; position: absolute; bottom: 100px; left: 40px; transition: all 0.2s; z-index: 20;" onmouseover="this.style.background='#360b0f';" onmouseout="this.style.background='#4a1015';">
+            <i data-feather="arrow-left"></i> BACK
+        </button>
+    </div>
+
+
+    <div class="sidebar-left hidden" id="sidebarLeft">
+        <button class="toggle-left-btn" id="toggleLeftBtn"><i data-feather="chevron-right"></i></button>
+        <div class="sidebar-header">
+            <h2>Backgrounds</h2>
+            <button class="close-sidebar-btn" onclick="toggleSidebar('closeAll')"><i data-feather="x"></i></button>
+        </div>
+        <div class="sidebar-content" id="bgContainer"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="video-container" id="videoContainer">
+            <video id="videoElement" autoplay playsinline></video>
+            <canvas id="canvasElement"></canvas> 
+            <div id="countdownOverlay"></div>
+            
+            <button id="toggleGridBtn" class="floating-debug-btn fade-element">Hide Grid</button>
+            
+            <!-- ANCHOR TOGGLE -->
+            <button id="anchorToggleBtn" class="floating-anchor-btn fade-element">Per-Face Emoji: OFF</button>
+            
+            <!-- HIDDEN BACK BUTTON -->
+            <button onclick="showFolders()" class="fade-element" style="position: absolute; top: 20px; right: 120px; z-index: 40; background: rgba(0,0,0,0.8); color: white; border: 1px solid rgba(0,210,255,0.5); padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; align-items: center; gap: 8px; opacity: 0.15; transition: opacity 0.3s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.15'">
+                <i data-feather="arrow-left" style="width: 18px; height: 18px;"></i> Change Theme
+            </button>
+
+            <!-- LAYOUT SELECTOR -->
+            <div class="layout-selector fade-element" id="layoutSelector">
+                <button id="layoutBtn" class="layout-btn-icon"><i data-feather="layout"></i></button>
+                <div id="layoutMenu" class="layout-menu hidden" style="width: 200px; max-height: 70vh; overflow-y: auto;">
+                    <div style="font-size: 0.75rem; color: #888; padding: 5px 12px; font-weight: bold; text-transform: uppercase;">Vertical Strips</div>
+                    <button onclick="setLayout('single', 1)" class="active-layout" id="lay-single">Single Photo</button>
+                    <button onclick="setLayout('strip2', 2)" id="lay-strip2">Strip of 2</button>
+                    <button onclick="setLayout('strip3', 3)" id="lay-strip3">Strip of 3</button>
+                    <button onclick="setLayout('strip4', 4)" id="lay-strip4">Strip of 4</button>
+                    <button onclick="setLayout('strip5', 5)" id="lay-strip5">Strip of 5</button>
+                    <div style="font-size: 0.75rem; color: #888; padding: 5px 12px; margin-top: 5px; border-top: 1px solid #333; font-weight: bold; text-transform: uppercase;">Grid Layouts</div>
+                    <button onclick="setLayout('grid2', 2)" id="lay-grid2">Grid of 2</button>
+                    <button onclick="setLayout('grid3', 3)" id="lay-grid3">Grid of 3</button>
+                    <button onclick="setLayout('grid4', 4)" id="lay-grid4">Grid of 4</button>
+                    <button onclick="setLayout('grid5', 5)" id="lay-grid5">Grid of 5</button>
+                </div>
+            </div>
+
+            <!-- MINI HUD -->
+            <div id="miniPreview" class="mini-preview hidden fade-element" onclick="openFullCollage()">
+                <div id="miniGrid" class="layout-strip2"></div>
+            </div>
+
+            <!-- CAPTURE BUTTONS -->
+            <div id="captureControls" class="floating-capture-controls">
+                <button id="timerToggleBtn" class="icon-btn timer-btn" title="Timer">
+                    <i data-feather="clock" id="timerIcon"></i>
+                    <span id="timerText" style="display:none; font-weight: 600; font-size: 1.1rem;">3s</span>
+                </button>
+                <button id="capturePhotoBtn" class="icon-btn photo-btn" title="Take Photo">
+                    <i data-feather="camera"></i>
+                </button>
+                <button id="recordVideoBtn" class="icon-btn video-btn" title="Record Video">
+                    <i data-feather="video"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FULL COLLAGE MODAL -->
+    <div id="fullCollageModal" class="full-collage-modal hidden">
+        <div class="collage-content">
+            <h2>Review Your Photos</h2>
+            <p>1 Click: View | 2 Clicks: Retake</p>
+            <div id="fullCollageGrid" class="full-collage-grid layout-strip2"></div>
+            <div class="modal-controls">
+                <button id="backToCameraBtn" onclick="closeFullCollage()" class="secondary-btn">Back to Camera</button>
+                <button id="saveCollageBtn" onclick="saveCollage()" class="primary-btn">Done (Save Grid)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="singleViewModal" class="full-collage-modal hidden" style="z-index: 200; cursor: zoom-out;" onclick="closeSingleView()">
+        <img id="singleViewImg" style="max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.9);">
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="sidebar-right hidden" id="sidebarRight">
+        <button class="toggle-right-btn" id="toggleRightBtn"><i data-feather="chevron-left"></i></button>
+        <div class="sidebar-header">
+            <h2>Stickers</h2>
+            <button class="close-sidebar-btn" onclick="toggleSidebar('closeAll')"><i data-feather="x"></i></button>
+        </div>
+        <div class="sidebar-content">
+            <!-- NEW: Face Tabs for Anchor Mode -->
+            <div id="faceTabsContainer" class="face-tabs-container hidden"></div>
+            <div id="emojiContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        feather.replace();
+
+        // ==========================================
+        // 1. DATA AND STATE
+        // ==========================================
+        const emojiData = [
+            { id: 'laugh', category: 'Mask', char: '😂', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'clown_mask', category: 'Mask', char: '🤡', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'crown', category: 'Hat', char: '👑', anchor: 10, sizeMult: 1.3, offsetY: -0.15 },
+            { id: 'tophat', category: 'Hat', char: '🎩', anchor: 10, sizeMult: 1.4, offsetY: -0.2 },
+            { id: 'dark', category: 'Glasses', char: '🕶️', anchor: 168, sizeMult: 0.9, offsetY: 0 },
+            { id: 'nerd', category: 'Glasses', char: '👓', anchor: 168, sizeMult: 0.9, offsetY: 0 },
+            { id: 'pignose', category: 'Nose', char: '🐽', anchor: 1, sizeMult: 0.4, offsetY: 0 },
+            { id: 'mustache1', category: 'Mustache', char: '〰️', anchor: 164, sizeMult: 0.6, offsetY: 0 },
+            { id: 'lips', category: 'Lips', char: '👄', anchor: 14, sizeMult: 0.4, offsetY: 0 }
+        ];
+
+        const bgData = [
+            { id: 'none', label: 'Real Life', color: null },
+            { id: 'neon', label: 'Neon Pink', color: '#ff007f' },
+            { id: 'blue', label: 'Ocean Blue', color: '#00d2ff' },
+            { id: 'green', label: 'Matrix Green', color: '#0f380f' },
+            { id: 'white', label: 'Studio White', color: '#ffffff' }
+        ];
+
+        // Global emoji config for standard mode
+        let globalEmojis = { Mask: null, Hat: null, Glasses: null, Nose: null, Mustache: null, Lips: null };
+        
+        // Face Tracking & Anchor state
+        let anchorMode = false;
+        let trackedFaces = []; // { id: 1, lastX: 0, lastY: 0, emojis: {Mask: null...}, landmarks: [] }
+        const persistentFaceProps = {
+            1: { Mask: null, Hat: null, Glasses: null, Nose: null, Mustache: null, Lips: null },
+            2: { Mask: null, Hat: null, Glasses: null, Nose: null, Mustache: null, Lips: null },
+            3: { Mask: null, Hat: null, Glasses: null, Nose: null, Mustache: null, Lips: null },
+            4: { Mask: null, Hat: null, Glasses: null, Nose: null, Mustache: null, Lips: null }
+        };
+        let selectedFaceIdForUI = null;
+
+        let activeBg = null; 
+        let showGrid = true;
+        let previousTrackedCount = 0;
+
+        document.getElementById('anchorToggleBtn').onclick = (e) => {
+            anchorMode = !anchorMode;
+            e.target.innerText = anchorMode ? 'Per-Face Emoji: ON' : 'Per-Face Emoji: OFF';
+            e.target.classList.toggle('active');
+            renderEmojiPicker(); 
+        };
+
+        window.selectFaceTab = function(id) {
+            selectedFaceIdForUI = id;
+            renderEmojiPicker();
+        };
+
+        // ==========================================
+        // 2. UI RENDERERS
+        // ==========================================
+        const sidebarLeft = document.getElementById('sidebarLeft');
+        const sidebarRight = document.getElementById('sidebarRight');
+        
+        function toggleSidebar(action) {
+            if (action === 'closeAll') {
+                sidebarLeft.classList.add('hidden'); sidebarRight.classList.add('hidden');
+                document.getElementById('toggleLeftBtn').innerHTML = '<i data-feather="chevron-right"></i>';
+                document.getElementById('toggleRightBtn').innerHTML = '<i data-feather="chevron-left"></i>';
+            } else if (action === 'left') {
+                sidebarLeft.classList.remove('hidden'); sidebarRight.classList.add('hidden'); 
+                document.getElementById('toggleLeftBtn').innerHTML = '<i data-feather="chevron-left"></i>';
+                document.getElementById('toggleRightBtn').innerHTML = '<i data-feather="chevron-left"></i>';
+            } else {
+                sidebarRight.classList.remove('hidden'); sidebarLeft.classList.add('hidden'); 
+                document.getElementById('toggleRightBtn').innerHTML = '<i data-feather="chevron-right"></i>';
+                document.getElementById('toggleLeftBtn').innerHTML = '<i data-feather="chevron-right"></i>';
+            }
+            feather.replace();
+        }
+
+        document.getElementById('toggleLeftBtn').onclick = () => toggleSidebar(sidebarLeft.classList.contains('hidden') ? 'left' : 'closeAll');
+        document.getElementById('toggleRightBtn').onclick = () => toggleSidebar(sidebarRight.classList.contains('hidden') ? 'right' : 'closeAll');
+        
+        const gridBtn = document.getElementById('toggleGridBtn');
+        gridBtn.onclick = () => { showGrid = !showGrid; gridBtn.innerText = showGrid ? 'Hide Grid' : 'Show Grid'; };
+
+        function renderBgPicker() {
+            const container = document.getElementById('bgContainer');
+            container.innerHTML = '';
+            bgData.forEach(bg => {
+                const btn = document.createElement('div');
+                btn.className = `bg-color-btn ${activeBg === bg.color ? 'active' : ''}`;
+                btn.style.background = bg.color || '#222';
+                btn.innerHTML = `<div style="text-align:center; line-height:60px; font-weight:500; font-size:0.95rem; color: ${bg.color === '#ffffff' ? 'black' : 'white'}">${bg.label}</div>`;
+                btn.onclick = () => { activeBg = bg.color; renderBgPicker(); };
+                container.appendChild(btn);
+            });
+        }
+
+        function renderEmojiPicker() {
+            const container = document.getElementById('emojiContainer');
+            const tabsContainer = document.getElementById('faceTabsContainer');
+            container.innerHTML = '';
+            
+            // Determine which emoji config we are editing
+            let currentEditingConfig = globalEmojis;
+
+            if (anchorMode) {
+                tabsContainer.classList.remove('hidden');
+                tabsContainer.innerHTML = '';
+                
+                if (trackedFaces.length === 0) {
+                    tabsContainer.innerHTML = '<div style="color:#aaa; font-size:0.85rem;">Waiting for faces to appear...</div>';
+                } else {
+                    // Make sure selected ID is valid
+                    if (!trackedFaces.find(f => f.id === selectedFaceIdForUI)) {
+                        selectedFaceIdForUI = trackedFaces[0].id;
+                    }
+                    
+                    trackedFaces.forEach(face => {
+                        const tab = document.createElement('button');
+                        tab.className = `face-tab ${selectedFaceIdForUI === face.id ? 'active' : ''}`;
+                        tab.innerText = `Face ${face.id}`;
+                        tab.onclick = () => selectFaceTab(face.id);
+                        tabsContainer.appendChild(tab);
+                    });
+                    
+                    const activeFace = trackedFaces.find(f => f.id === selectedFaceIdForUI);
+                    if (activeFace) currentEditingConfig = activeFace.emojis;
+                }
+            } else {
+                tabsContainer.classList.add('hidden');
+            }
+
+            const categories = ['Mask', 'Hat', 'Glasses', 'Nose', 'Mustache', 'Lips'];
+            categories.forEach(cat => {
+                const title = document.createElement('div');
+                title.className = 'category-title';
+                title.innerText = cat;
+                container.appendChild(title);
+                const grid = document.createElement('div');
+                grid.className = 'emoji-grid-layout';
+
+                const noneBtn = document.createElement('button');
+                noneBtn.className = `item-btn ${!currentEditingConfig[cat] ? 'active' : ''}`;
+                noneBtn.innerHTML = '<i data-feather="slash"></i>';
+                noneBtn.onclick = () => { 
+                    currentEditingConfig[cat] = null; 
+                    renderEmojiPicker(); 
+                };
+                grid.appendChild(noneBtn);
+
+                const catEmojis = emojiData.filter(e => e.category === cat);
+                catEmojis.forEach(em => {
+                    const btn = document.createElement('button');
+                    btn.className = `item-btn ${currentEditingConfig[cat] && currentEditingConfig[cat].id === em.id ? 'active' : ''}`;
+                    btn.innerText = em.char;
+                    btn.onclick = () => {
+                        if (cat === 'Mask') {
+                            currentEditingConfig.Mask = em;
+                            currentEditingConfig.Glasses = null; currentEditingConfig.Nose = null; 
+                            currentEditingConfig.Mustache = null; currentEditingConfig.Lips = null;
+                        } else { 
+                            if (cat !== 'Hat') currentEditingConfig.Mask = null; 
+                            currentEditingConfig[cat] = em; 
+                        }
+                        renderEmojiPicker();
+                    };
+                    grid.appendChild(btn);
+                });
+                container.appendChild(grid);
+            });
+            feather.replace();
+        }
+
+        renderBgPicker();
+        renderEmojiPicker();
+
+        // ==========================================
+        // 3. COLLAGE STATE & LOGIC
+        // ==========================================
+        let currentLayoutId = 'single'; 
+        let currentLayoutCount = 1;
+        let collagePhotos = [];
+        let retakeIndex = -1; 
+        
+        let customLayouts = [];
+
+        function loadCustomLayouts() {
+            try {
+                customLayouts = JSON.parse(localStorage.getItem('photobooth_custom_layouts') || '[]');
+            } catch(e) {}
+            
+            document.querySelectorAll('.custom-layout-item').forEach(el => el.remove());
+            const oldStyle = document.getElementById('customLayoutStyles');
+            if (oldStyle) oldStyle.remove();
+
+            if (customLayouts.length > 0) {
+                const menu = document.getElementById('layoutMenu');
+                
+                let header = document.getElementById('customLayoutHeader');
+                if(!header) {
+                    header = document.createElement('div');
+                    header.id = 'customLayoutHeader';
+                    header.style = "font-size: 0.75rem; color: #888; padding: 5px 12px; margin-top: 5px; border-top: 1px solid #333; font-weight: bold; text-transform: uppercase;";
+                    header.innerText = "Admin Layouts";
+                    menu.appendChild(header);
+                }
+
+                let dynamicCSS = '';
+                
+                const urlParams = new URLSearchParams(window.location.search);
+                const activeTheme = urlParams.get('theme');
+
+                // Filter layouts to ONLY show the ones from the active theme!
+                let filteredLayouts = customLayouts;
+                if (activeTheme) {
+                    filteredLayouts = customLayouts.filter(l => (l.theme || 'Default') === activeTheme);
+                }
+
+                filteredLayouts.forEach(layout => {
+                    const btn = document.createElement('button');
+                    btn.className = 'custom-layout-item';
+                    btn.id = `lay-${layout.id}`;
+                    btn.innerText = layout.name;
+                    btn.onclick = () => setLayout(layout.id, layout.count);
+                    menu.appendChild(btn);
+                    
+                    const aspect = layout.width / layout.height;
+                    const bgCol = layout.bgColor || '#ffffff';
+                    const bgImg = layout.overlay ? `url('${layout.overlay}')` : 'none';
+                    dynamicCSS += `
+                        .layout-${layout.id} { position: relative; width: 100%; aspect-ratio: ${aspect}; background-color: ${bgCol}; background-image: ${bgImg}; background-size: 100% 100%; border-radius: 4px; overflow: hidden; margin: 0 auto; container-type: inline-size;}
+                    `;
+                    
+                    layout.slots.forEach((slot, index) => {
+                        const left = (slot.x / layout.width) * 100;
+                        const top = (slot.y / layout.height) * 100;
+                        const w = (slot.w / layout.width) * 100;
+                        const h = (slot.h / layout.height) * 100;
+                        
+                        let borderCSS = '';
+                        if (layout.enableBorder) {
+                            borderCSS = `outline: ${layout.borderThickness}px solid ${layout.borderColor}; outline-offset: -${layout.borderThickness}px;`;
+                        }
+                        
+                        dynamicCSS += `
+                            .layout-${layout.id} .custom-slot-${index} {
+                                position: absolute !important; left: ${left}%; top: ${top}%; width: ${w}%; height: ${h}%;
+                                margin: 0; ${borderCSS}; z-index: 10;
+                            }
+                        `;
+                    });
+
+                    if (layout.texts) {
+                        layout.texts.forEach((txt, index) => {
+                            const left = (txt.x / layout.width) * 100;
+                            const top = (txt.y / layout.height) * 100;
+                            const fs = (txt.size / layout.width) * 100;
+                            const pad = (10 / layout.width) * 100;
+                            
+                            dynamicCSS += `
+                                .layout-${layout.id} .custom-text-${index} {
+                                    position: absolute; left: ${left}%; top: ${top}%;
+                                    color: ${txt.color}; font-family: '${txt.font}';
+                                    font-size: ${fs}cqw; font-weight: bold;
+                                    white-space: nowrap; z-index: 30; pointer-events: none;
+                                    padding: ${pad}cqw; margin: 0;
+                                }
+                            `;
+                        });
+                    }
+                });
+
+                const style = document.createElement('style');
+                style.id = 'customLayoutStyles';
+                style.innerHTML = dynamicCSS;
+                document.head.appendChild(style);
+            }
+        }
+        loadCustomLayouts(); // Run on startup
+        window.addEventListener('storage', loadCustomLayouts); // Auto-update without refresh
+
+        // ==========================================
+        // AUTO-LOAD KIOSK THEME FROM URL
+        // ==========================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoLoadLayout = urlParams.get('layout');
+        if (autoLoadLayout) {
+            setTimeout(() => {
+                const l = customLayouts.find(x => x.id === autoLoadLayout);
+                if (l) {
+                    setLayout(l.id, l.count);
+                }
+            }, 100);
+        }
+
+        document.getElementById('layoutBtn').onclick = () => {
+            const menu = document.getElementById('layoutMenu');
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) {
+                document.getElementById('miniPreview').classList.add('hidden');
+            } else {
+                if (currentLayoutCount !== 1) document.getElementById('miniPreview').classList.remove('hidden');
+            }
+        };
+
+        window.setLayout = function(id, count) {
+            currentLayoutId = id;
+            currentLayoutCount = count;
+            collagePhotos = new Array(count).fill(null);
+            document.getElementById('layoutMenu').classList.add('hidden');
+            
+            document.querySelectorAll('.layout-menu button').forEach(b => b.classList.remove('active-layout'));
+            const activeBtn = document.getElementById(`lay-${id}`);
+            if (activeBtn) activeBtn.classList.add('active-layout');
+
+            if (currentLayoutId === 'single') {
+                document.getElementById('miniPreview').classList.add('hidden');
+            } else {
+                document.getElementById('miniPreview').classList.remove('hidden');
+                updateMiniPreview();
+            }
+        };
+
+        function updateMiniPreview() {
+            const container = document.getElementById('miniGrid');
+            container.className = `layout-${currentLayoutId}`;
+            container.innerHTML = '';
+            const isCustom = currentLayoutId.startsWith('custom_');
+            for (let i = 0; i < currentLayoutCount; i++) {
+                const slot = document.createElement('div');
+                slot.className = isCustom ? `slot custom-slot-${i}` : 'slot';
+                if (collagePhotos[i]) {
+                    slot.innerHTML = `<img src="${collagePhotos[i]}">`;
+                }
+                container.appendChild(slot);
+            }
+            
+            if (isCustom) {
+                const config = customLayouts.find(l => l.id === currentLayoutId);
+                if (config && config.texts) {
+                    config.texts.forEach((txt, i) => {
+                        const el = document.createElement('div');
+                        el.className = `custom-text-${i}`;
+                        el.innerText = txt.text;
+                        el.style.pointerEvents = 'none'; // Force pass-through clicks
+                        container.appendChild(el);
+                    });
+                }
+            }
+        }
+
+        window.closeSingleView = function() {
+            document.getElementById('singleViewModal').classList.add('hidden');
+        };
+
+        window.openFullCollage = function() {
+            if (currentLayoutId === 'single') return;
+            document.getElementById('fullCollageModal').classList.remove('hidden');
+            
+            const grid = document.getElementById('fullCollageGrid');
+            grid.className = `full-collage-grid layout-${currentLayoutId}`;
+            grid.innerHTML = '';
+            
+            const isFull = !collagePhotos.includes(null);
+            document.getElementById('backToCameraBtn').style.display = isFull ? 'none' : 'block';
+            
+            const saveBtn = document.getElementById('saveCollageBtn');
+            if (isFull) {
+                saveBtn.disabled = false;
+                saveBtn.style.opacity = '1';
+                saveBtn.style.cursor = 'pointer';
+                saveBtn.innerText = 'Done (Save Grid)';
+            } else {
+                saveBtn.disabled = true;
+                saveBtn.style.opacity = '0.5';
+                saveBtn.style.cursor = 'not-allowed';
+                saveBtn.innerText = 'Finish Taking Photos';
+            }
+            
+            const isCustom = currentLayoutId.startsWith('custom_');
+            for (let i = 0; i < currentLayoutCount; i++) {
+                const slot = document.createElement('div');
+                slot.className = isCustom ? `slot custom-slot-${i}` : 'slot';
+                
+                if (collagePhotos[i]) {
+                    slot.className += ' has-image';
+                    slot.innerHTML = `<img src="${collagePhotos[i]}">`;
+                    
+                    let clickTimer = null;
+                    slot.onclick = (e) => {
+                        if (clickTimer) clearTimeout(clickTimer);
+                        clickTimer = setTimeout(() => {
+                            document.getElementById('singleViewImg').src = collagePhotos[i];
+                            document.getElementById('singleViewModal').classList.remove('hidden');
+                        }, 250);
+                    };
+
+                    slot.ondblclick = (e) => {
+                        if (clickTimer) clearTimeout(clickTimer);
+                        retakeIndex = i;
+                        document.getElementById('fullCollageModal').classList.add('hidden');
+                        document.getElementById('capturePhotoBtn').click();
+                    };
+                } else {
+                    slot.innerText = `Photo ${i+1}`;
+                }
+
+                grid.appendChild(slot);
+            }
+            
+            if (isCustom) {
+                const config = customLayouts.find(l => l.id === currentLayoutId);
+                if (config && config.texts) {
+                    config.texts.forEach((txt, i) => {
+                        const el = document.createElement('div');
+                        el.className = `custom-text-${i}`;
+                        el.innerText = txt.text;
+                        el.style.pointerEvents = 'none'; // Force pass-through clicks
+                        grid.appendChild(el);
+                    });
+                }
+            }
+        };
+        
+        window.closeFullCollage = function() {
+            document.getElementById('fullCollageModal').classList.add('hidden');
+            retakeIndex = -1;
+        };
+
+        window.saveCollage = function() {
+            if (collagePhotos.includes(null)) {
+                alert("Please take all photos for the layout before saving!");
+                return;
+            }
+            
+            const finalCanvas = document.createElement('canvas');
+            const fCtx = finalCanvas.getContext('2d');
+            fCtx.fillStyle = '#ffffff'; 
+
+            let map = [];
+            const pw = 1000;
+            const ph = 562;
+            const hw = 490;
+            const hh = 275;
+            
+            const isCustom = currentLayoutId.startsWith('custom_');
+            let customLayoutConfig = null;
+
+            if (isCustom) {
+                customLayoutConfig = customLayouts.find(l => l.id === currentLayoutId);
+                finalCanvas.width = customLayoutConfig.width;
+                finalCanvas.height = customLayoutConfig.height;
+                map = customLayoutConfig.slots;
+            } else if (currentLayoutId.startsWith('strip')) {
+                finalCanvas.width = 1040;
+                finalCanvas.height = 20 + (ph * currentLayoutCount) + (20 * currentLayoutCount);
+                for(let i=0; i<currentLayoutCount; i++) {
+                    map.push({x: 20, y: 20 + (ph + 20)*i, w: pw, h: ph});
+                }
+            } else if (currentLayoutId === 'grid2') {
+                finalCanvas.width = 1040; finalCanvas.height = 315;
+                map = [ {x: 20, y: 20, w: hw, h: hh}, {x: 530, y: 20, w: hw, h: hh} ];
+            } else if (currentLayoutId === 'grid3') {
+                finalCanvas.width = 1040; finalCanvas.height = 897;
+                map = [ {x: 20, y: 20, w: pw, h: ph}, {x: 20, y: 602, w: hw, h: hh}, {x: 530, y: 602, w: hw, h: hh} ];
+            } else if (currentLayoutId === 'grid4') {
+                finalCanvas.width = 1040; finalCanvas.height = 610;
+                map = [ {x: 20, y: 20, w: hw, h: hh}, {x: 530, y: 20, w: hw, h: hh}, {x: 20, y: 315, w: hw, h: hh}, {x: 530, y: 315, w: hw, h: hh} ];
+            } else if (currentLayoutId === 'grid5') {
+                finalCanvas.width = 1040; finalCanvas.height = 1192;
+                map = [ {x: 20, y: 20, w: pw, h: ph}, {x: 20, y: 602, w: hw, h: hh}, {x: 530, y: 602, w: hw, h: hh}, {x: 20, y: 897, w: hw, h: hh}, {x: 530, y: 897, w: hw, h: hh} ];
+            }
+
+            if (isCustom && customLayoutConfig && customLayoutConfig.bgColor) {
+                fCtx.fillStyle = customLayoutConfig.bgColor;
+            } else {
+                fCtx.fillStyle = '#ffffff';
+            }
+            fCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+            
+            const startDrawingPhotos = () => {
+                let loadedCount = 0;
+                collagePhotos.forEach((src, idx) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const rect = map[idx];
+                        
+                        if (isCustom && customLayoutConfig && customLayoutConfig.enableBorder) {
+                            const t = parseInt(customLayoutConfig.borderThickness) || 0;
+                            fCtx.fillStyle = customLayoutConfig.borderColor || '#ffffff';
+                            fCtx.fillRect(rect.x, rect.y, rect.w, rect.h);
+                            fCtx.drawImage(img, rect.x + t, rect.y + t, rect.w - (t*2), rect.h - (t*2));
+                        } else {
+                            fCtx.drawImage(img, rect.x, rect.y, rect.w, rect.h);
+                        }
+                        
+                        loadedCount++;
+                        
+                        if (loadedCount === currentLayoutCount) {
+                            if (isCustom && customLayoutConfig && customLayoutConfig.texts) {
+                                customLayoutConfig.texts.forEach(txt => {
+                                    fCtx.fillStyle = txt.color;
+                                    fCtx.textBaseline = "top";
+                                    fCtx.font = `bold ${txt.size}px '${txt.font}'`;
+                                    fCtx.fillText(txt.text, txt.x + 10, txt.y + 10);
+                                });
+                            }
+
+                            const finalDataUrl = finalCanvas.toDataURL('image/png');
+                            const a = document.createElement('a');
+                            a.href = finalDataUrl;
+                            a.download = `photobooth_layout_${Date.now()}.png`;
+                            a.click();
+                            
+                            addCaptureToCarousel(finalDataUrl);
+                            
+                            collagePhotos = new Array(currentLayoutCount).fill(null);
+                            updateMiniPreview();
+                            closeFullCollage();
+                        }
+                    };
+                    img.src = src;
+                });
+            };
+
+            // Draw overlay first (so photos sit ON TOP of it, allowing non-transparent frames)
+            if (isCustom && customLayoutConfig && customLayoutConfig.overlay) {
+                const overlayImg = new Image();
+                overlayImg.onload = () => {
+                    fCtx.drawImage(overlayImg, 0, 0, finalCanvas.width, finalCanvas.height);
+                    startDrawingPhotos();
+                };
+                overlayImg.src = customLayoutConfig.overlay;
+            } else {
+                startDrawingPhotos();
+            }
+        };
+
+        // ==========================================
+        // 4. CAPTURE LOGIC
+        // ==========================================
+        const captureControls = document.getElementById('captureControls');
+        const layoutSelector = document.getElementById('layoutSelector');
+        const miniPreview = document.getElementById('miniPreview');
+        const anchorToggleBtn = document.getElementById('anchorToggleBtn');
+        const timerToggleBtn = document.getElementById('timerToggleBtn');
+        const capturePhotoBtn = document.getElementById('capturePhotoBtn');
+        
+        let timerStates = [0, 3, 5, 7, 10]; 
+        let currentTimerIndex = 0; 
+        let timerSeconds = 0;
+
+        timerToggleBtn.onclick = (e) => {
+            currentTimerIndex = (currentTimerIndex + 1) % timerStates.length;
+            timerSeconds = timerStates[currentTimerIndex];
+            
+            if (timerSeconds === 0) {
+                document.getElementById('timerIcon').style.display = 'block';
+                document.getElementById('timerText').style.display = 'none';
+                timerToggleBtn.classList.remove('active');
+            } else {
+                document.getElementById('timerIcon').style.display = 'none';
+                document.getElementById('timerText').style.display = 'block';
+                document.getElementById('timerText').innerText = `${timerSeconds}s`;
+                timerToggleBtn.classList.add('active');
+            }
+        };
+
+        async function runTimer() {
+            let timeToWait = timerSeconds;
+            if (currentLayoutCount > 1 && timeToWait === 0) timeToWait = 3; 
+
+            if (timeToWait === 0) return;
+
+            const overlay = document.getElementById('countdownOverlay');
+            overlay.style.display = 'block';
+            for (let i = timeToWait; i > 0; i--) {
+                overlay.innerText = i;
+                await new Promise(r => setTimeout(r, 1000));
+            }
+            overlay.style.display = 'none';
+        }
+
+        capturePhotoBtn.onclick = async () => {
+            captureControls.classList.add('hide-controls');
+            gridBtn.classList.add('hide-controls');
+            layoutSelector.style.opacity = '0';
+            miniPreview.style.opacity = '0';
+            anchorToggleBtn.style.opacity = '0';
+            
+            await runTimer();
+            
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvasElement.width;
+            tempCanvas.height = canvasElement.height;
+            const ctx = tempCanvas.getContext('2d');
+            ctx.translate(tempCanvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(canvasElement, 0, 0);
+
+            const dataURL = tempCanvas.toDataURL('image/png');
+            
+            if (currentLayoutId === 'single') {
+                const a = document.createElement('a');
+                a.href = dataURL;
+                a.download = `photobooth_${Date.now()}.png`;
+                a.click();
+                
+                addCaptureToCarousel(dataURL);
+            } else {
+                if (retakeIndex !== -1) {
+                    collagePhotos[retakeIndex] = dataURL;
+                    retakeIndex = -1;
+                    openFullCollage(); 
+                } else {
+                    const emptyIdx = collagePhotos.indexOf(null);
+                    if (emptyIdx !== -1) {
+                        collagePhotos[emptyIdx] = dataURL;
+                    }
+                    if (!collagePhotos.includes(null)) {
+                        openFullCollage();
+                    }
+                }
+                updateMiniPreview();
+            }
+            
+            captureControls.classList.remove('hide-controls');
+            gridBtn.classList.remove('hide-controls');
+            layoutSelector.style.opacity = '1';
+            miniPreview.style.opacity = '1';
+            anchorToggleBtn.style.opacity = '1';
+        };
+
+        function addCaptureToCarousel(dataURL) {
+            let filmImages = JSON.parse(localStorage.getItem('filmStripImages') || '[]');
+            
+            // If full, remove the oldest image to make room for the new one
+            if (filmImages.length >= 80) {
+                filmImages.shift();
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = 180;
+                canvas.height = 120;
+                const ctx = canvas.getContext('2d');
+                
+                const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                const w = img.width * scale;
+                const h = img.height * scale;
+                const x = (canvas.width - w) / 2;
+                const y = (canvas.height - h) / 2;
+                
+                ctx.drawImage(img, x, y, w, h);
+                
+                try {
+                    filmImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                    localStorage.setItem('filmStripImages', JSON.stringify(filmImages));
+                    populateFilmStrips();
+                    
+                    // Dispatch storage event manually so admin panel live-updates if open
+                    window.dispatchEvent(new Event('storage'));
+                } catch (err) {
+                    console.error('Storage limit reached, could not add capture to carousel.');
+                }
+            };
+            img.src = dataURL;
+        }
+
+        let isRecording = false;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+
+        document.getElementById('recordVideoBtn').onclick = async (e) => {
+            const btn = document.getElementById('recordVideoBtn');
+            if (isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                btn.innerHTML = '<i data-feather="video"></i>'; feather.replace();
+                btn.classList.remove('recording');
+                
+                timerToggleBtn.style.display = 'flex';
+                capturePhotoBtn.style.display = 'flex';
+                setTimeout(() => { timerToggleBtn.style.opacity = '1'; capturePhotoBtn.style.opacity = '1'; }, 10);
+                gridBtn.classList.remove('hide-controls');
+                layoutSelector.style.opacity = '1';
+                miniPreview.style.opacity = '1';
+                anchorToggleBtn.style.opacity = '1';
+                return;
+            }
+
+            timerToggleBtn.style.opacity = '0'; capturePhotoBtn.style.opacity = '0';
+            gridBtn.classList.add('hide-controls');
+            layoutSelector.style.opacity = '0'; miniPreview.style.opacity = '0';
+            anchorToggleBtn.style.opacity = '0';
+            setTimeout(() => { timerToggleBtn.style.display = 'none'; capturePhotoBtn.style.display = 'none'; }, 300);
+            
+            await runTimer();
+            
+            recordedChunks = [];
+            const stream = canvasElement.captureStream(30); 
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+            
+            mediaRecorder.ondataavailable = (event) => { if (event.data.size > 0) recordedChunks.push(event.data); };
+            
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = `photobooth_vid_${Date.now()}.webm`; a.click();
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            btn.innerHTML = '<i data-feather="square"></i>'; feather.replace();
+            btn.classList.add('recording');
+        };
+
+        // ==========================================
+        // 5. TEMPORAL TRACKING & AI PIPELINE
+        // ==========================================
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('canvasElement');
+        const canvasCtx = canvasElement.getContext('2d');
+        
+        async function autoStartCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: {ideal:1920}, height:{ideal:1080} } });
+                videoElement.srcObject = stream;
+                videoElement.onloadedmetadata = () => {
+                    canvasElement.width = videoElement.videoWidth; canvasElement.height = videoElement.videoHeight;
+                    processVideo();
+                };
+            } catch (err) { console.error("Camera access denied.", err); }
+        }
+        autoStartCamera();
+
+        const faceMesh = new FaceMesh({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`});
+        faceMesh.setOptions({ maxNumFaces: 4, refineLandmarks: true, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+        
+        faceMesh.onResults((results) => {
+            if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+                if (trackedFaces.length > 0) {
+                    trackedFaces = [];
+                    if (anchorMode) renderEmojiPicker();
+                }
+            } else {
+                // Temporal Distance Tracking
+                let newTracked = [];
+                let unmatchedOld = [...trackedFaces];
+
+                results.multiFaceLandmarks.forEach(landmarks => {
+                    const centerPt = landmarks[10]; // Top of head
+                    let bestIdx = -1;
+                    let minDist = Infinity;
+
+                    for(let i=0; i<unmatchedOld.length; i++) {
+                        let dist = Math.hypot(centerPt.x - unmatchedOld[i].lastX, centerPt.y - unmatchedOld[i].lastY);
+                        if (dist < minDist && dist < 0.25) { // Threshold for tracking
+                            minDist = dist;
+                            bestIdx = i;
+                        }
+                    }
+
+                    if (bestIdx !== -1) {
+                        let match = unmatchedOld.splice(bestIdx, 1)[0];
+                        match.lastX = centerPt.x;
+                        match.lastY = centerPt.y;
+                        match.landmarks = landmarks;
+                        newTracked.push(match);
+                    } else {
+                        // Assign the lowest available Face ID (1 to 4)
+                        let usedIds = newTracked.map(f => f.id);
+                        let newId = 1;
+                        while(usedIds.includes(newId)) newId++;
+                        
+                        if (!persistentFaceProps[newId]) {
+                             persistentFaceProps[newId] = { Mask: null, Hat: null, Glasses: null, Nose: null, Mustache: null, Lips: null };
+                        }
+
+                        newTracked.push({
+                            id: newId,
+                            lastX: centerPt.x,
+                            lastY: centerPt.y,
+                            landmarks: landmarks,
+                            emojis: persistentFaceProps[newId]
+                        });
+                    }
+                });
+                
+                trackedFaces = newTracked;
+                
+                // If the number of faces changed while in Anchor mode, update the sidebar tabs
+                if (anchorMode && trackedFaces.length !== previousTrackedCount) {
+                    renderEmojiPicker();
+                }
+                previousTrackedCount = trackedFaces.length;
+            }
+
+            // Draw Everything
+            if (!activeBg) {
+                canvasCtx.save(); canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height); canvasCtx.restore();
+                drawEmojisAndGrid();
+            }
+        });
+
+        const selfieSegmentation = new SelfieSegmentation({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`});
+        selfieSegmentation.setOptions({ modelSelection: 1 });
+        selfieSegmentation.onResults((results) => {
+            if (activeBg) {
+                canvasCtx.save(); canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.drawImage(results.segmentationMask, 0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.globalCompositeOperation = 'source-in'; canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.globalCompositeOperation = 'destination-over'; canvasCtx.fillStyle = activeBg; canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
+                canvasCtx.restore(); drawEmojisAndGrid();
+            }
+        });
+
+        function drawEmojisAndGrid() {
+            if (trackedFaces.length === 0) return;
+            
+            for (const face of trackedFaces) {
+                const landmarks = face.landmarks;
+                if (showGrid) {
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#C0C0C070', lineWidth: 1});
+                    drawConnectors(canvasCtx, landmarks, FACEMESH_FACE_OVAL, {color: '#E0E0E0'});
+                }
+                
+                const faceWidth = Math.abs(landmarks[454].x - landmarks[234].x) * canvasElement.width;
+                const angle = Math.atan2(landmarks[454].y - landmarks[234].y, landmarks[454].x - landmarks[234].x);
+
+                // Draw Anchor ID above head if enabled
+                if (anchorMode) {
+                    const topPt = landmarks[10];
+                    canvasCtx.save();
+                    canvasCtx.fillStyle = "#00d2ff";
+                    canvasCtx.font = "bold 35px Inter";
+                    canvasCtx.textAlign = "center";
+                    // Mirror text so it reads correctly on the mirrored canvas
+                    canvasCtx.translate(topPt.x * canvasElement.width, topPt.y * canvasElement.height - (faceWidth * 0.4));
+                    canvasCtx.scale(-1, 1); 
+                    canvasCtx.fillText(face.id, 0, 0);
+                    canvasCtx.restore();
+                }
+
+                // Choose which emoji set to use
+                const emojiSet = anchorMode ? face.emojis : globalEmojis;
+                const orderedCategories = ['Mask', 'Lips', 'Mustache', 'Nose', 'Glasses', 'Hat'];
+                
+                orderedCategories.forEach(cat => {
+                    const emoji = emojiSet[cat];
+                    if (!emoji) return;
+                    const anchorPt = landmarks[emoji.anchor];
+                    canvasCtx.save();
+                    canvasCtx.translate(anchorPt.x * canvasElement.width, anchorPt.y * canvasElement.height);
+                    canvasCtx.rotate(angle);
+                    canvasCtx.font = `${faceWidth * emoji.sizeMult}px Arial`; canvasCtx.textAlign = "center";
+                    canvasCtx.textBaseline = emoji.category === 'Hat' ? "bottom" : "middle";
+                    canvasCtx.fillText(emoji.char, 0, faceWidth * emoji.offsetY);
+                    canvasCtx.restore();
+                });
+            }
+        }
+
+        let lastVideoTime = -1;
+        async function processVideo() {
+            if (videoElement.readyState >= 2 && videoElement.currentTime !== lastVideoTime) {
+                lastVideoTime = videoElement.currentTime;
+                await faceMesh.send({image: videoElement});
+                if (activeBg) await selfieSegmentation.send({image: videoElement});
+            }
+            requestAnimationFrame(processVideo);
+        }
+        // ==========================================
+        // WELCOME & THEME LOGIC
+        // ==========================================
+        window.showWelcome = function() {
+            document.getElementById('welcomeScreen').classList.remove('hidden');
+            document.getElementById('folderScreen').classList.add('hidden');
+            document.getElementById('screenBackdrop').classList.remove('hidden');
+        };
+
+        window.showFolders = function() {
+            document.getElementById('welcomeScreen').classList.add('hidden');
+            document.getElementById('folderScreen').classList.remove('hidden');
+            document.getElementById('screenBackdrop').classList.remove('hidden');
+            
+            const grid = document.getElementById('folderGrid');
+            grid.style.display = 'flex';
+            grid.style.flexWrap = 'wrap';
+            grid.style.justifyContent = 'center';
+            grid.style.gap = '30px';
+            grid.innerHTML = '';
+            
+            if (customLayouts.length === 0) {
+                grid.innerHTML = '<p style="font-size: 1.5rem; color: #888;">No templates found.<br>Please create a theme in the Super Admin dashboard.</p>';
+                return;
+            }
+
+            // Extract unique themes/folders
+            const themes = [...new Set(customLayouts.map(l => l.theme || 'Default'))];
+
+            themes.forEach(themeName => {
+                const card = document.createElement('div');
+                card.style.display = 'flex';
+                card.style.flexDirection = 'column';
+                card.style.alignItems = 'center';
+                card.style.cursor = 'pointer';
+                card.style.transition = 'transform 0.2s';
+                
+                card.onmouseover = () => card.style.transform = 'scale(1.05)';
+                card.onmouseout = () => card.style.transform = 'scale(1)';
+                
+                card.onclick = () => {
+                    const layoutsInFolder = customLayouts.filter(l => (l.theme || 'Default') === themeName);
+                    const firstLayout = layoutsInFolder[0];
+                    if (!firstLayout) return;
+                    
+                    document.getElementById('folderScreen').classList.add('hidden');
+                    document.getElementById('screenBackdrop').classList.add('hidden');
+                    
+                    // Filter the sidebar to ONLY show layouts from this active theme
+                    const menu = document.getElementById('layoutMenu');
+                    document.querySelectorAll('.custom-layout-item').forEach(el => el.remove());
+                    
+                    layoutsInFolder.forEach(fl => {
+                        const btn = document.createElement('button');
+                        btn.className = 'custom-layout-item';
+                        btn.id = `lay-${fl.id}`;
+                        btn.innerText = fl.name;
+                        btn.onclick = () => setLayout(fl.id, fl.count);
+                        menu.appendChild(btn);
+                    });
+                    
+                    // Start the photobooth with the default single photo mode
+                    setLayout('single', 1);
+                };
+                
+                card.innerHTML = `
+                    <div style="background: rgba(74, 16, 21, 1); border-radius: 24px; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; border: 1px solid #4a1015; margin-bottom: 15px;">
+                        <i data-feather="folder" style="width: 70px; height: 70px; color: #f4ebd0;"></i>
+                    </div>
+                    <div class="theme-name" style="font-size: 1.5rem; margin: 0; text-align: center; color: #f4ebd0; font-weight: bold;">${themeName}</div>
+                `;
+                grid.appendChild(card);
+            });
+            feather.replace();
+        };
+
+        function populateFilmStrips() {
+            const filmImages = JSON.parse(localStorage.getItem('filmStripImages') || '[]');
+            
+            // Distribute images alternately to top and bottom tracks so they are not mirrored
+            const topImages = filmImages.filter((_, i) => i % 2 === 0);
+            const bottomImages = filmImages.filter((_, i) => i % 2 !== 0);
+
+            const tracksConfig = [
+                { id: 'welcomeTrackTop', images: topImages },
+                { id: 'folderTrackTop', images: topImages },
+                { id: 'welcomeTrackBottom', images: bottomImages },
+                { id: 'folderTrackBottom', images: bottomImages }
+            ];
+            
+            tracksConfig.forEach(config => {
+                const track = document.getElementById(config.id);
+                if (!track) return;
+                track.innerHTML = '';
+                
+                let frameSet = [];
+                config.images.forEach(src => {
+                    frameSet.push(`<div class="film-frame"><img src="${src}"></div>`);
+                });
+                
+                // 40 slots per track (80 total)
+                const remaining = Math.max(0, 40 - config.images.length);
+                for (let i = 0; i < remaining; i++) {
+                    frameSet.push('<div class="film-frame"></div>');
+                }
+                
+                track.innerHTML = frameSet.join('') + frameSet.join('');
+            });
+        }
+
+        populateFilmStrips();
+
+        // Listen for live updates from the admin panel (different tab)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'filmStripImages') {
+                populateFilmStrips();
+            }
+            if (e.key === 'photobooth_custom_layouts') {
+                customLayouts = JSON.parse(e.newValue || '[]');
+                // If we are currently on the folder screen, refresh it
+                if (!document.getElementById('folderScreen').classList.contains('hidden')) {
+                    showFolders();
+                }
+            }
+        });
+
+        // Automatically show welcome screen if no layout is loaded from URL
+        const isLayoutInURL = new URLSearchParams(window.location.search).get('layout');
+        if (!isLayoutInURL) {
+            showWelcome();
+        } else {
+            document.getElementById('welcomeScreen').classList.add('hidden');
+        }
+
+    </script>
+</body>
+</html>

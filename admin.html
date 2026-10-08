@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin - Photobooth Engine</title>
+    
+    <!-- Feather Icons -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    <!-- Interact.js for Drag & Resize -->
+    <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background-color: #0f1015; color: #fff; font-family: 'Inter', -apple-system, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+        
+        /* SIDEBAR CONTROLS */
+        .sidebar { width: 380px; background: #161821; border-right: 1px solid #2a2d3d; display: flex; flex-direction: column; z-index: 10; box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+        .sidebar-header { padding: 30px; border-bottom: 1px solid #2a2d3d; background: linear-gradient(135deg, #161821, #1e212f); }
+        .sidebar-header h1 { margin: 0; font-size: 1.5rem; font-weight: 700; background: linear-gradient(to right, #00d2ff, #3a7bd5); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar-header p { margin: 5px 0 0 0; color: #8892b0; font-size: 0.85rem; }
+        
+        .controls { padding: 30px; overflow-y: auto; flex-grow: 1; }
+        .control-group { margin-bottom: 25px; }
+        .control-group label { display: block; font-size: 0.8rem; font-weight: 600; color: #8892b0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        
+        input[type="text"], input[type="number"] { width: 100%; background: #0f1015; border: 1px solid #2a2d3d; color: white; padding: 12px 15px; border-radius: 8px; font-size: 1rem; outline: none; transition: 0.2s; }
+        input[type="text"]:focus, input[type="number"]:focus { border-color: #00d2ff; box-shadow: 0 0 10px rgba(0, 210, 255, 0.2); }
+        
+        .row { display: flex; gap: 15px; }
+        
+        .btn { width: 100%; padding: 14px; border-radius: 8px; border: none; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-primary { background: linear-gradient(135deg, #00d2ff, #3a7bd5); color: white; box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3); }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 210, 255, 0.5); }
+        .btn-secondary { background: #2a2d3d; color: white; border: 1px solid #3a3d4d; }
+        .btn-secondary:hover { background: #3a3d4d; }
+        
+        .btn-danger { background: rgba(255, 59, 48, 0.1); color: #ff3b30; border: 1px solid rgba(255, 59, 48, 0.3); }
+        .btn-danger:hover { background: rgba(255, 59, 48, 0.2); }
+
+        .saved-layouts { margin-top: 20px; border-top: 1px solid #2a2d3d; padding-top: 20px; }
+        .layout-item { display: flex; justify-content: space-between; align-items: center; background: #0f1015; padding: 12px; border-radius: 8px; border: 1px solid #2a2d3d; margin-bottom: 10px; }
+        .layout-item span { font-weight: 500; }
+        .layout-item button { background: none; border: none; color: #ff3b30; cursor: pointer; padding: 5px; }
+
+        /* WORKSPACE (CANVAS AREA) */
+        .workspace-container { flex-grow: 1; background: #0a0b0e; position: relative; overflow: auto; display: flex; align-items: center; justify-content: center; background-image: radial-gradient(#2a2d3d 1px, transparent 1px); background-size: 20px 20px; }
+        
+        #canvasArea { background: white; position: relative; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; transform-origin: center center; }
+        
+        .overlay-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; z-index: 10; opacity: 1; }
+        
+        /* DRAGGABLE SLOTS */
+        .photo-slot { position: absolute; background: rgba(0, 210, 255, 0.4); border: 2px solid #00d2ff; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 1.5rem; user-select: none; z-index: 20; box-shadow: inset 0 0 20px rgba(0,210,255,0.2); }
+        .photo-slot:hover { border-style: solid; background: rgba(0, 210, 255, 0.25); }
+        
+        /* Interact.js adds these classes during resize/drag */
+        .photo-slot.is-dragging { opacity: 0.8; z-index: 100; border-color: #fff; color: #fff; }
+        
+        .delete-slot { position: absolute; top: -15px; right: -15px; background: #ff3b30; color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; font-size: 14px; font-weight: bold; display: none; align-items: center; justify-content: center; z-index: 10; }
+        .photo-slot:hover .delete-slot { display: flex; }
+
+        .zoom-controls { position: absolute; bottom: 30px; right: 30px; background: #161821; border: 1px solid #2a2d3d; border-radius: 8px; display: flex; overflow: hidden; z-index: 50; }
+        .zoom-controls button { background: none; border: none; color: white; padding: 15px; cursor: pointer; border-right: 1px solid #2a2d3d; }
+        .zoom-controls button:last-child { border: none; }
+        .zoom-controls button:hover { background: #2a2d3d; }
+        
+        .theme-dropdown { color: #ffffff !important; }
+        .theme-dropdown option { background: #161821 !important; color: #ffffff !important; }
+        .theme-dropdown option[value="_NEW_"] { color: #00d2ff !important; font-weight: bold !important; }
+    </style>
+</head>
+<body>
+
+    <!-- SIDEBAR CONTROLS -->
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <h1>Super Admin</h1>
+            <p>Layout & Grid Builder Engine</p>
+        </div>
+        
+        <div class="controls">
+            <input type="hidden" id="editingLayoutId" value="">
+            <div class="control-group">
+                <label>Theme / Folder</label>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    <select id="layoutThemeSelect" onchange="handleThemeSelect()" class="theme-dropdown" style="width: 100%; font-size: 1.1rem; padding: 15px; border-radius: 8px; border: 1px solid #2a2d3d; background: #161821 url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%23fff\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"6 9 12 15 18 9\"></polyline></svg>') no-repeat right 15px center; appearance: none; padding-right: 40px; color: #ffffff; cursor: pointer; outline: none;">
+                        <option value="Default">Default</option>
+                        <option value="_NEW_">+ Create New Folder...</option>
+                    </select>
+                    <input type="text" id="layoutThemeInput" placeholder="Enter new folder name..." style="display: none; width: 100%; font-size: 1.1rem; padding: 15px; border-radius: 8px; border: 1px solid #00d2ff; background: #0f1015; color: #ffffff; box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);">
+                </div>
+
+                <label>Layout Name</label>
+                <input type="text" id="layoutName" style="width: 100%; font-size: 1.1rem; padding: 15px; border-radius: 8px; border: 1px solid #2a2d3d; background: #0f1015; color: #ffffff;">
+            </div>
+            
+            <div class="control-group">
+                <label>Canvas Dimensions (Pixels)</label>
+                <div class="row">
+                    <input type="number" id="canvasW" value="1040" placeholder="Width">
+                    <input type="number" id="canvasH" value="1184" placeholder="Height">
+                </div>
+                <button onclick="updateCanvasSize()" class="btn btn-secondary" style="margin-top: 10px;">Apply Dimensions</button>
+            </div>
+
+            <div class="control-group">
+                <label>Add Photo Slot</label>
+                <button onclick="addSlot()" class="btn btn-secondary">
+                    <i data-feather="plus-square"></i> Add Resizable Placeholder
+                </button>
+                <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">Drag to move. Drag edges to resize.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Frame / Overlay (PNG)</label>
+                <input type="file" id="overlayUpload" accept="image/png" style="display: none;" onchange="handleOverlayUpload(event)">
+                <button onclick="document.getElementById('overlayUpload').click()" class="btn btn-secondary">
+                    <i data-feather="image"></i> Upload Overlay Frame
+                </button>
+            </div>
+            
+            <div class="control-group">
+                <label>Grid Background Color</label>
+                <input type="color" id="bgColor" value="#ffffff" style="width: 100%; height: 40px; border: none; border-radius: 8px; cursor: pointer;" onchange="updateBgColor()">
+            </div>
+            
+            <div class="control-group">
+                <label>Photo Borders (Lines)</label>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <input type="checkbox" id="enableBorder" onchange="updateBorders()" style="width: auto;"> 
+                    <span style="font-size: 0.9rem;">Enable Borders / Lines</span>
+                </div>
+                <div class="row">
+                    <input type="number" id="borderThickness" value="10" placeholder="Thickness (px)" onchange="updateBorders()">
+                    <input type="color" id="borderColor" value="#ffffff" style="height: 40px; border: none; border-radius: 8px; cursor: pointer; width: 100%;" onchange="updateBorders()">
+                </div>
+                <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">Draws a solid line/border perfectly around every photo.</p>
+            </div>
+
+            <div class="control-group">
+                <label>Custom Text</label>
+                <div class="row" style="margin-bottom: 10px;">
+                    <button onclick="addText()" class="btn btn-secondary"><i data-feather="type"></i> Add Text Label</button>
+                </div>
+                
+                <div id="textControls" style="display: none; background: #2a2d3d; padding: 15px; border-radius: 8px; margin-top: 15px;">
+                    <label style="color: #00d2ff; font-size: 0.75rem;">Edit Selected Text</label>
+                    <input type="text" id="textContentInput" placeholder="Enter text" oninput="updateSelectedText()" style="margin-bottom: 10px;">
+                    <div class="row">
+                        <select id="textFont" style="width: 100%; background: #0f1015; color: white; border: 1px solid #2a2d3d; border-radius: 8px; padding: 10px;" onchange="updateSelectedText()">
+                            <option value="Inter">Inter (Modern)</option>
+                            <option value="Georgia">Georgia (Elegant Serif)</option>
+                            <option value="Courier New">Courier (Retro)</option>
+                            <option value="Impact">Impact (Bold Meme)</option>
+                            <option value="Brush Script MT">Brush Script (Wedding)</option>
+                            <option value="Arial">Arial</option>
+                        </select>
+                        <input type="color" id="textColor" value="#000000" style="width: 60px; height: 40px; border: none; border-radius: 8px; cursor: pointer;" onchange="updateSelectedText()">
+                    </div>
+                    <div class="row" style="margin-top: 10px;">
+                        <input type="number" id="textSize" value="40" style="width: 100%;" onchange="updateSelectedText()">
+                        <button class="btn btn-danger" style="padding: 10px; width: 60px;" onclick="deleteSelectedText()"><i data-feather="trash-2"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <hr style="border-color: #2a2d3d; margin: 30px 0;">
+
+            <div class="control-group">
+                <label>Global UI Settings</label>
+                <div style="background: #2a2d3d; padding: 15px; border-radius: 8px;">
+                    <label style="color: #00d2ff; font-size: 0.75rem;">Film Strip Carousel Images</label>
+                    <input type="file" id="filmUpload" accept="image/*" style="display: none;" onchange="handleFilmUpload(event)" multiple>
+                    <button onclick="document.getElementById('filmUpload').click()" class="btn btn-secondary" style="margin-bottom: 10px; width: 100%;">
+                        <i data-feather="film"></i> Add Film Image
+                    </button>
+                    <div id="filmGallery" style="display: flex; gap: 12px; flex-wrap: wrap; padding: 10px 5px; max-height: 220px; overflow-y: auto;"></div>
+                    <div id="filmCountDisplay" style="font-size: 0.8rem; color: #888; margin-top: 10px; text-align: center;"></div>
+                </div>
+            </div>
+
+            <hr style="border-color: #2a2d3d; margin: 30px 0;">
+
+            <button id="saveLayoutBtn" onclick="saveLayout()" class="btn btn-primary">
+                <i data-feather="save"></i> Save New Layout
+            </button>
+            
+            <button onclick="createNewLayout()" class="btn btn-secondary" style="margin-top: 10px; background: #28a745; border-color: #28a745;">
+                <i data-feather="file-plus"></i> Create New Layout
+            </button>
+
+            <div class="saved-layouts">
+                <label>Saved Custom Layouts</label>
+                <div id="savedList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WORKSPACE -->
+    <div class="workspace-container" id="workspaceContainer">
+        <div id="canvasArea" style="width: 1040px; height: 1184px;">
+            <!-- Overlays and Slots will be injected here -->
+        </div>
+        
+        <div class="zoom-controls">
+            <button onclick="zoomCanvas(-0.1)"><i data-feather="zoom-out"></i></button>
+            <button onclick="zoomCanvas(0.1)"><i data-feather="zoom-in"></i></button>
+        </div>
+    </div>
+
+    <script>
+        feather.replace();
+
+        let canvasArea = document.getElementById('canvasArea');
+        let slots = [];
+        let slotCounter = 0;
+        let currentZoom = 1;
+        let overlayBase64 = null;
+
+        function fitToScreen() {
+            let cw = parseFloat(document.getElementById('canvasW').value);
+            let ch = parseFloat(document.getElementById('canvasH').value);
+            let container = document.getElementById('workspaceContainer');
+            let scaleW = (container.clientWidth - 100) / cw;
+            let scaleH = (container.clientHeight - 100) / ch;
+            currentZoom = Math.min(scaleW, scaleH);
+            if (currentZoom > 1) currentZoom = 1;
+            canvasArea.style.transform = `scale(${currentZoom})`;
+            canvasArea.style.transformOrigin = 'center center';
+        }
+
+        // Apply initial fit
+        setTimeout(fitToScreen, 100);
+
+        function zoomCanvas(delta) {
+            currentZoom += delta;
+            if(currentZoom < 0.1) currentZoom = 0.1;
+            if(currentZoom > 3) currentZoom = 3;
+            canvasArea.style.transform = `scale(${currentZoom})`;
+        }
+
+        function updateCanvasSize() {
+            let w = document.getElementById('canvasW').value;
+            let h = document.getElementById('canvasH').value;
+            canvasArea.style.width = w + 'px';
+            canvasArea.style.height = h + 'px';
+            fitToScreen();
+        }
+        
+        function updateBgColor() {
+            canvasArea.style.backgroundColor = document.getElementById('bgColor').value;
+        }
+
+        function updateBorders() {
+            let enabled = document.getElementById('enableBorder').checked;
+            let t = document.getElementById('borderThickness').value;
+            let c = document.getElementById('borderColor').value;
+            
+            document.querySelectorAll('.photo-slot').forEach(slot => {
+                if(enabled) {
+                    slot.style.outline = `${t}px solid ${c}`;
+                    slot.style.outlineOffset = `-${t}px`;
+                } else {
+                    slot.style.outline = 'none';
+                }
+            });
+        }
+
+        function handleOverlayUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const w = parseInt(document.getElementById('canvasW').value) || 1040;
+                    const h = parseInt(document.getElementById('canvasH').value) || 1184;
+                    
+                    // Compress the overlay frame so it doesn't blow up localStorage
+                    // Maintain aspect ratio while fitting within 1040x1184 max
+                    const scale = Math.min(1040 / img.width, 1184 / img.height, 1);
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // We must use PNG to keep transparency
+                    overlayBase64 = canvas.toDataURL('image/png');
+                    
+                    // Remove existing overlay
+                    let existing = document.getElementById('layoutOverlay');
+                    if (existing) existing.remove();
+                    
+                    // Add new overlay
+                    let newImg = document.createElement('img');
+                    newImg.id = 'layoutOverlay';
+                    newImg.className = 'overlay-image';
+                    newImg.src = overlayBase64;
+                    canvasArea.appendChild(newImg);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function addSlot() {
+            slotCounter++;
+            let slot = document.createElement('div');
+            slot.className = 'photo-slot';
+            slot.id = `slot-${slotCounter}`;
+            // Default size matching 16:9 ratio roughly
+            slot.style.width = '490px';
+            slot.style.height = '275px';
+            slot.style.transform = `translate(20px, 20px)`;
+            // Store dataset for interact.js
+            slot.setAttribute('data-x', 20);
+            slot.setAttribute('data-y', 20);
+            
+            slot.innerHTML = `
+                Photo ${slotCounter}
+                <button class="delete-slot" onclick="this.parentElement.remove()"><i data-feather="x" style="width:14px;"></i></button>
+            `;
+            
+            canvasArea.appendChild(slot);
+            feather.replace();
+            updateBorders();
+        }
+
+        let activeTextElement = null;
+
+        function rgb2hex(rgb) {
+            if (!rgb || rgb.search("rgb") === -1) return rgb;
+            rgb = rgb.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+(?:\.\d+)?))?\)$/);
+            function hex(x) { return ("0" + parseInt(x).toString(16)).slice(-2); }
+            return "#" + hex(rgb[1]) + hex(rgb[2]) + hex(rgb[3]);
+        }
+
+        function addText() {
+            let txt = document.createElement('div');
+            txt.className = 'text-label';
+            txt.innerText = "Double tap or click to edit";
+            txt.style.position = 'absolute';
+            txt.style.color = '#000000';
+            txt.style.fontFamily = 'Inter';
+            txt.style.fontSize = '40px';
+            txt.style.fontWeight = 'bold';
+            txt.style.zIndex = 30;
+            txt.style.cursor = 'move';
+            txt.style.padding = '10px';
+            txt.style.border = '2px dashed transparent';
+            txt.style.whiteSpace = 'nowrap';
+            
+            txt.setAttribute('data-x', 50);
+            txt.setAttribute('data-y', 50);
+            txt.style.transform = `translate(50px, 50px)`;
+            
+            txt.onclick = () => selectText(txt);
+            
+            canvasArea.appendChild(txt);
+            selectText(txt);
+        }
+
+        function selectText(el) {
+            document.querySelectorAll('.text-label').forEach(t => t.style.border = '2px dashed transparent');
+            activeTextElement = el;
+            el.style.border = '2px dashed #00d2ff';
+            
+            document.getElementById('textControls').style.display = 'block';
+            document.getElementById('textContentInput').value = el.innerText;
+            document.getElementById('textColor').value = rgb2hex(el.style.color);
+            document.getElementById('textFont').value = el.style.fontFamily.replace(/['"]/g, '');
+            document.getElementById('textSize').value = parseInt(el.style.fontSize);
+        }
+
+        function updateSelectedText() {
+            if(activeTextElement) {
+                activeTextElement.innerText = document.getElementById('textContentInput').value;
+                activeTextElement.style.color = document.getElementById('textColor').value;
+                activeTextElement.style.fontFamily = document.getElementById('textFont').value;
+                activeTextElement.style.fontSize = document.getElementById('textSize').value + 'px';
+                activeTextElement.style.width = 'auto';
+                activeTextElement.style.height = 'auto';
+            }
+        }
+        
+        function deleteSelectedText() {
+            if(activeTextElement) {
+                activeTextElement.remove();
+                document.getElementById('textControls').style.display = 'none';
+                activeTextElement = null;
+            }
+        }
+
+        function clearWorkspace() {
+            document.querySelectorAll('.photo-slot').forEach(e => e.remove());
+            document.querySelectorAll('.text-label').forEach(e => e.remove());
+            let existing = document.getElementById('layoutOverlay');
+            if (existing) existing.remove();
+            overlayBase64 = null;
+            slotCounter = 0;
+            
+            document.getElementById('textControls').style.display = 'none';
+            activeTextElement = null;
+        }
+
+        function createNewLayout() {
+            clearWorkspace();
+            document.getElementById('editingLayoutId').value = '';
+            
+            let savedLayouts = JSON.parse(localStorage.getItem('photobooth_custom_layouts') || '[]');
+            document.getElementById('layoutName').value = `Custom Layout ${savedLayouts.length + 1}`;
+            
+            const btn = document.getElementById('saveLayoutBtn');
+            btn.innerHTML = '<i data-feather="save"></i> Save New Layout';
+            btn.style.background = '';
+            btn.style.borderColor = '';
+            feather.replace();
+        }
+
+        // Initialize Interact.js for Dragging and Resizing Photos
+        interact('.photo-slot')
+            .draggable({
+                inertia: true,
+                modifiers: [
+                    interact.modifiers.restrictRect({
+                        restriction: 'parent',
+                        endOnly: true
+                    })
+                ],
+                autoScroll: true,
+                listeners: { move: dragMoveListener }
+            })
+            .resizable({
+                // resize from all edges and corners
+                edges: { left: true, right: true, bottom: true, top: true },
+                listeners: { move: resizeMoveListener },
+                modifiers: [
+                    // keep the edges inside the parent
+                    interact.modifiers.restrictEdges({
+                        outer: 'parent'
+                    }),
+                    // minimum size
+                    interact.modifiers.restrictSize({
+                        min: { width: 100, height: 100 }
+                    })
+                ],
+                inertia: true
+            });
+
+        // Initialize Interact.js for Dragging Text (NO RESIZING)
+        interact('.text-label')
+            .draggable({
+                inertia: true,
+                modifiers: [
+                    interact.modifiers.restrictRect({
+                        restriction: 'parent',
+                        endOnly: true
+                    })
+                ],
+                autoScroll: true,
+                listeners: { move: dragMoveListener }
+            });
+
+        function dragMoveListener(event) {
+            var target = event.target;
+            // divide event.dx by currentZoom to fix drag speed when scaled
+            var x = (parseFloat(target.getAttribute('data-x')) || 0) + (event.dx / currentZoom);
+            var y = (parseFloat(target.getAttribute('data-y')) || 0) + (event.dy / currentZoom);
+
+            target.style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+
+            target.setAttribute('data-x', x);
+            target.setAttribute('data-y', y);
+        }
+
+        function resizeMoveListener(event) {
+            var target = event.target;
+            var x = (parseFloat(target.getAttribute('data-x')) || 0);
+            var y = (parseFloat(target.getAttribute('data-y')) || 0);
+
+            // Divide by currentZoom to fix resize speed when scaled
+            target.style.width = (event.rect.width / currentZoom) + 'px';
+            target.style.height = (event.rect.height / currentZoom) + 'px';
+
+            x += (event.deltaRect.left / currentZoom);
+            y += (event.deltaRect.top / currentZoom);
+
+            target.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+            target.setAttribute('data-x', x);
+            target.setAttribute('data-y', y);
+        }
+
+        function handleThemeSelect() {
+            const select = document.getElementById('layoutThemeSelect');
+            const input = document.getElementById('layoutThemeInput');
+            if (select.value === '_NEW_') {
+                input.style.display = 'block';
+                input.focus();
+            } else {
+                input.style.display = 'none';
+            }
+            renderSavedLayouts();
+        }
+
+        // SYSTEM SAVING LOGIC
+        function saveLayout() {
+            const name = document.getElementById('layoutName').value || `Custom_${Date.now()}`;
+            
+            const selectVal = document.getElementById('layoutThemeSelect').value;
+            const theme = selectVal === '_NEW_' ? document.getElementById('layoutThemeInput').value.trim() : selectVal;
+            const finalTheme = theme || 'Default';
+            
+            const editingId = document.getElementById('editingLayoutId').value;
+            const id = editingId || ('custom_' + Date.now());
+            
+            const w = document.getElementById('canvasW').value;
+            const h = document.getElementById('canvasH').value;
+            
+            const slotElements = document.querySelectorAll('.photo-slot');
+            if(slotElements.length === 0) {
+                alert("Please add at least one photo placeholder!");
+                return;
+            }
+
+            let slotData = [];
+            slotElements.forEach(el => {
+                slotData.push({
+                    x: parseFloat(el.getAttribute('data-x')),
+                    y: parseFloat(el.getAttribute('data-y')),
+                    w: parseFloat(el.style.width),
+                    h: parseFloat(el.style.height)
+                });
+            });
+
+            let textData = [];
+            document.querySelectorAll('.text-label').forEach(el => {
+                textData.push({
+                    text: el.innerText,
+                    x: parseFloat(el.getAttribute('data-x')),
+                    y: parseFloat(el.getAttribute('data-y')),
+                    color: el.style.color,
+                    font: el.style.fontFamily.replace(/['"]/g, ''),
+                    size: parseInt(el.style.fontSize)
+                });
+            });
+
+            const layoutConfig = {
+                id: id,
+                name: name,
+                theme: finalTheme,
+                width: parseInt(w),
+                height: parseInt(h),
+                count: slotData.length,
+                slots: slotData,
+                texts: textData,
+                overlay: overlayBase64,
+                bgColor: document.getElementById('bgColor').value,
+                enableBorder: document.getElementById('enableBorder').checked,
+                borderThickness: document.getElementById('borderThickness').value,
+                borderColor: document.getElementById('borderColor').value
+            };
+
+            // Save to LocalStorage
+            let savedLayouts = JSON.parse(localStorage.getItem('photobooth_custom_layouts') || '[]');
+            
+            if (editingId) {
+                const index = savedLayouts.findIndex(l => l.id === editingId);
+                if (index !== -1) {
+                    savedLayouts[index] = layoutConfig;
+                } else {
+                    savedLayouts.push(layoutConfig);
+                }
+            } else {
+                savedLayouts.push(layoutConfig);
+            }
+            
+            try {
+                localStorage.setItem('photobooth_custom_layouts', JSON.stringify(savedLayouts));
+                // Reset editing state
+                createNewLayout();
+                alert(`Layout "${name}" saved successfully!`);
+                renderSavedLayouts();
+            } catch (err) {
+                alert("Storage Limit Reached! The overlay image or layouts size is too large. Please use a smaller PNG overlay.");
+            }
+        }
+
+        function renderSavedLayouts() {
+            const list = document.getElementById('savedList');
+            list.innerHTML = '';
+            let savedLayouts = JSON.parse(localStorage.getItem('photobooth_custom_layouts') || '[]');
+            
+            let themes = new Set();
+            savedLayouts.forEach(layout => themes.add(layout.theme || 'Default'));
+
+            const currentSelectedTheme = document.getElementById('layoutThemeSelect') ? document.getElementById('layoutThemeSelect').value : 'Default';
+            const filterTheme = currentSelectedTheme === '_NEW_' ? 'Default' : currentSelectedTheme;
+            
+            let filteredLayouts = savedLayouts.map((l, i) => ({...l, originalIndex: i})).filter(l => (l.theme || 'Default') === filterTheme);
+
+            if (filteredLayouts.length === 0) {
+                list.innerHTML = `<div style="color:#666; font-size:0.85rem; padding: 10px; text-align: center;">No layouts found in "${filterTheme}" folder.</div>`;
+            } else {
+                filteredLayouts.forEach((layout) => {
+                    let div = document.createElement('div');
+                    div.className = 'layout-item';
+                    div.style.cursor = 'pointer';
+                    div.onclick = (e) => {
+                        if(e.target.closest('button')) return;
+                        loadLayout(layout.originalIndex);
+                    };
+                    div.innerHTML = `
+                        <div>
+                            <span style="display:block; font-weight: bold;">${layout.name}</span>
+                            <span style="font-size: 0.75rem; color: #888;">${layout.count} Photos • Click to edit</span>
+                        </div>
+                        <button onclick="deleteLayout(${layout.originalIndex})"><i data-feather="trash-2"></i></button>
+                    `;
+                    list.appendChild(div);
+                });
+            }
+            
+            const select = document.getElementById('layoutThemeSelect');
+            if (select) {
+                const currentVal = select.value;
+                select.innerHTML = `
+                    <option value="Default">Default</option>
+                    <option value="_NEW_" style="color: #00d2ff; font-weight: bold;">+ Create New Folder...</option>
+                `;
+                themes.forEach(t => {
+                    if (t !== 'Default') {
+                        select.innerHTML += `<option value="${t}">${t}</option>`;
+                    }
+                });
+                
+                if (themes.has(currentVal)) {
+                    select.value = currentVal;
+                } else if (currentVal === '_NEW_') {
+                    select.value = '_NEW_';
+                } else {
+                    select.value = 'Default';
+                }
+            }
+            
+            feather.replace();
+        }
+
+        window.loadLayout = function(index) {
+            let savedLayouts = JSON.parse(localStorage.getItem('photobooth_custom_layouts') || '[]');
+            const layout = savedLayouts[index];
+            if (!layout) return;
+
+            clearWorkspace();
+
+            document.getElementById('editingLayoutId').value = layout.id;
+            document.getElementById('layoutName').value = layout.name;
+            document.getElementById('canvasW').value = layout.width;
+            document.getElementById('canvasH').value = layout.height;
+            updateCanvasSize();
+            
+            const btn = document.getElementById('saveLayoutBtn');
+            btn.innerHTML = '<i data-feather="edit-2"></i> Update Existing Layout';
+            btn.style.background = '#e67e22';
+            btn.style.borderColor = '#e67e22';
+
+            if (layout.bgColor) {
+                document.getElementById('bgColor').value = layout.bgColor;
+                updateBgColor();
+            }
+
+            if (layout.overlay) {
+                overlayBase64 = layout.overlay;
+                let img = document.createElement('img');
+                img.id = 'layoutOverlay';
+                img.className = 'overlay-image';
+                img.src = overlayBase64;
+                canvasArea.appendChild(img);
+            }
+
+            layout.slots.forEach((s) => {
+                slotCounter++;
+                let slot = document.createElement('div');
+                slot.className = 'photo-slot';
+                slot.id = `slot-${slotCounter}`;
+                slot.style.width = s.w + 'px';
+                slot.style.height = s.h + 'px';
+                slot.style.transform = `translate(${s.x}px, ${s.y}px)`;
+                slot.setAttribute('data-x', s.x);
+                slot.setAttribute('data-y', s.y);
+                slot.innerHTML = `Photo ${slotCounter}<button class="delete-slot" onclick="this.parentElement.remove()"><i data-feather="x" style="width:14px;"></i></button>`;
+                canvasArea.appendChild(slot);
+            });
+
+            if (layout.texts) {
+                layout.texts.forEach(t => {
+                    let txt = document.createElement('div');
+                    txt.className = 'text-label';
+                    txt.innerText = t.text;
+                    txt.style.position = 'absolute';
+                    txt.style.color = t.color;
+                    txt.style.fontFamily = t.font;
+                    txt.style.fontSize = t.size + 'px';
+                    txt.style.fontWeight = 'bold';
+                    txt.style.zIndex = 30;
+                    txt.style.cursor = 'move';
+                    txt.style.padding = '10px';
+                    txt.style.border = '2px dashed transparent';
+                    txt.style.whiteSpace = 'nowrap';
+                    txt.setAttribute('data-x', t.x);
+                    txt.setAttribute('data-y', t.y);
+                    txt.style.transform = `translate(${t.x}px, ${t.y}px)`;
+                    txt.onclick = () => selectText(txt);
+                    canvasArea.appendChild(txt);
+                });
+            }
+            
+            updateBorders();
+            feather.replace();
+        }
+
+        window.deleteLayout = function(index) {
+            let savedLayouts = JSON.parse(localStorage.getItem('photobooth_custom_layouts') || '[]');
+            savedLayouts.splice(index, 1);
+            localStorage.setItem('photobooth_custom_layouts', JSON.stringify(savedLayouts));
+            renderSavedLayouts();
+        }
+
+        // FILM STRIP CAROUSEL LOGIC
+        let filmImages = JSON.parse(localStorage.getItem('filmStripImages') || '[]');
+
+        function handleFilmUpload(e) {
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 180;
+                        canvas.height = 120;
+                        const ctx = canvas.getContext('2d');
+                        
+                        const scale = Math.max(canvas.width / img.width, canvas.height / img.height);
+                        const w = img.width * scale;
+                        const h = img.height * scale;
+                        const x = (canvas.width - w) / 2;
+                        const y = (canvas.height - h) / 2;
+                        
+                        ctx.drawImage(img, x, y, w, h);
+                        
+                        try {
+                            filmImages.push(canvas.toDataURL('image/jpeg', 0.8));
+                            saveFilmImages();
+                        } catch (err) {
+                            alert('Storage limit reached! Please delete some images first.');
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+            e.target.value = '';
+        }
+
+        function saveFilmImages() {
+            localStorage.setItem('filmStripImages', JSON.stringify(filmImages));
+            renderFilmGallery();
+        }
+
+        function renderFilmGallery() {
+            const gallery = document.getElementById('filmGallery');
+            if(!gallery) return;
+            gallery.innerHTML = '';
+            filmImages.forEach((src, index) => {
+                const wrap = document.createElement('div');
+                wrap.style.position = 'relative';
+                wrap.style.flexShrink = '0';
+                
+                const img = document.createElement('img');
+                img.src = src;
+                img.style.width = '60px';
+                img.style.height = '60px';
+                img.style.objectFit = 'cover';
+                img.style.borderRadius = '4px';
+                img.style.border = '2px solid #fff';
+                
+                const del = document.createElement('button');
+                del.innerHTML = '×';
+                del.style.position = 'absolute';
+                del.style.top = '-8px';
+                del.style.right = '-8px';
+                del.style.background = '#dc3545';
+                del.style.color = 'white';
+                del.style.border = 'none';
+                del.style.borderRadius = '50%';
+                del.style.width = '20px';
+                del.style.height = '20px';
+                del.style.cursor = 'pointer';
+                del.style.fontSize = '14px';
+                del.style.lineHeight = '14px';
+                del.style.padding = '0';
+                del.onclick = () => {
+                    filmImages.splice(index, 1);
+                    saveFilmImages();
+                };
+                
+                wrap.appendChild(img);
+                wrap.appendChild(del);
+                gallery.appendChild(wrap);
+            });
+            
+            const maxFrames = 80;
+            const emptySlots = Math.max(0, maxFrames - filmImages.length);
+            document.getElementById('filmCountDisplay').innerHTML = `<strong>${filmImages.length}</strong> images uploaded • <strong>${emptySlots}</strong> empty placeholders remaining in carousels (split between top & bottom)`;
+        }
+
+        // Init
+        renderFilmGallery();
+        renderSavedLayouts();
+        createNewLayout();
+
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'filmStripImages') {
+                filmImages = JSON.parse(e.newValue || '[]');
+                renderFilmGallery();
+            }
+        });
+
+    </script>
+</body>
+</html>
