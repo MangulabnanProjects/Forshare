@@ -390,15 +390,77 @@
         // 1. DATA AND STATE
         // ==========================================
         const emojiData = [
+            // MASKS (10) - Anchor 1 (Nose tip/Center face), Large size
             { id: 'laugh', category: 'Mask', char: '😂', anchor: 1, sizeMult: 1.4, offsetY: 0 },
             { id: 'clown_mask', category: 'Mask', char: '🤡', anchor: 1, sizeMult: 1.4, offsetY: 0 },
-            { id: 'crown', category: 'Hat', char: '👑', anchor: 10, sizeMult: 1.3, offsetY: -0.15 },
-            { id: 'tophat', category: 'Hat', char: '🎩', anchor: 10, sizeMult: 1.4, offsetY: -0.2 },
+            { id: 'alien', category: 'Mask', char: '👽', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'robot', category: 'Mask', char: '🤖', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'ogre', category: 'Mask', char: '👹', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'ghost', category: 'Mask', char: '👻', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'pumpkin', category: 'Mask', char: '🎃', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'cowboy', category: 'Mask', char: '🤠', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'santa', category: 'Mask', char: '🎅', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+            { id: 'unicorn', category: 'Mask', char: '🦄', anchor: 1, sizeMult: 1.4, offsetY: 0 },
+
+            // HATS (10) - Anchor 10 (Top of head)
+            { id: 'crown', category: 'Hat', char: '👑', anchor: 10, sizeMult: 1.3, offsetY: -0.1 },
+            { id: 'tophat', category: 'Hat', char: '🎩', anchor: 10, sizeMult: 1.4, offsetY: -0.15 },
+            { id: 'cap', category: 'Hat', char: '🧢', anchor: 10, sizeMult: 1.3, offsetY: 0.05 },
+            { id: 'sunhat', category: 'Hat', char: '👒', anchor: 10, sizeMult: 1.5, offsetY: 0.0 },
+            { id: 'grad', category: 'Hat', char: '🎓', anchor: 10, sizeMult: 1.4, offsetY: 0.05 },
+            { id: 'helmet', category: 'Hat', char: '🪖', anchor: 10, sizeMult: 1.4, offsetY: 0.2 },
+            { id: 'ribbon', category: 'Hat', char: '🎀', anchor: 10, sizeMult: 1.0, offsetY: 0.0 },
+            { id: 'flower', category: 'Hat', char: '🌸', anchor: 10, sizeMult: 1.0, offsetY: -0.05 },
+            { id: 'mushroom', category: 'Hat', char: '🍄', anchor: 10, sizeMult: 1.2, offsetY: -0.1 },
+            { id: 'apple', category: 'Hat', char: '🍎', anchor: 10, sizeMult: 1.0, offsetY: 0.0 }, // Replaced headphones
+
+            // GLASSES (10) - Anchor 168 (Between eyes)
             { id: 'dark', category: 'Glasses', char: '🕶️', anchor: 168, sizeMult: 0.9, offsetY: 0 },
             { id: 'nerd', category: 'Glasses', char: '👓', anchor: 168, sizeMult: 0.9, offsetY: 0 },
+            { id: 'goggles', category: 'Glasses', char: '🥽', anchor: 168, sizeMult: 1.0, offsetY: 0 },
+            // Using left/right independent anchors for perfect eye alignment (159 = Left Eye, 386 = Right Eye)
+            { id: 'stars', category: 'Glasses', charLeft: '⭐', charRight: '⭐', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: 0 },
+            { id: 'hearts', category: 'Glasses', charLeft: '💖', charRight: '💖', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: 0 },
+            { id: 'fire', category: 'Glasses', charLeft: '🔥', charRight: '🔥', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: -0.05 },
+            { id: 'spiral', category: 'Glasses', charLeft: '🌀', charRight: '🌀', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: 0 },
+            { id: 'flowers', category: 'Glasses', charLeft: '🌸', charRight: '🌸', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: 0 },
+            { id: 'eyes', category: 'Glasses', charLeft: '👁️', charRight: '👁️', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: 0 },
+            { id: 'sparkles', category: 'Glasses', charLeft: '✨', charRight: '✨', leftAnchor: 159, rightAnchor: 386, sizeMult: 0.35, offsetY: 0 },
+
+            // NOSE (10) - Anchor 1 (Nose tip)
             { id: 'pignose', category: 'Nose', char: '🐽', anchor: 1, sizeMult: 0.4, offsetY: 0 },
+            { id: 'clownnose', category: 'Nose', char: '🔴', anchor: 1, sizeMult: 0.3, offsetY: 0 },
+            { id: 'nose', category: 'Nose', char: '👃', anchor: 1, sizeMult: 0.4, offsetY: 0 },
+            { id: 'strawberry', category: 'Nose', char: '🍓', anchor: 1, sizeMult: 0.3, offsetY: 0 },
+            { id: 'cherry', category: 'Nose', char: '🍒', anchor: 1, sizeMult: 0.3, offsetY: 0 },
+            { id: 'diamond', category: 'Nose', char: '💎', anchor: 1, sizeMult: 0.3, offsetY: 0 },
+            { id: 'lightning', category: 'Nose', char: '⚡', anchor: 1, sizeMult: 0.3, offsetY: 0 },
+            { id: 'ladybug', category: 'Nose', char: '🐞', anchor: 1, sizeMult: 0.25, offsetY: 0 },
+            { id: 'star_nose', category: 'Nose', char: '⭐', anchor: 1, sizeMult: 0.3, offsetY: 0 },
+            { id: 'bandaid', category: 'Nose', char: '🩹', anchor: 1, sizeMult: 0.4, offsetY: -0.05 },
+
+            // MUSTACHE/ACCESSORIES (10)
             { id: 'mustache1', category: 'Mustache', char: '〰️', anchor: 164, sizeMult: 0.6, offsetY: 0 },
-            { id: 'lips', category: 'Lips', char: '👄', anchor: 14, sizeMult: 0.4, offsetY: 0 }
+
+            { id: 'bat', category: 'Mustache', char: '🦇', anchor: 164, sizeMult: 0.8, offsetY: 0 },
+            { id: 'cloud', category: 'Mustache', char: '☁️', anchor: 164, sizeMult: 0.7, offsetY: 0 },
+            { id: 'baguette', category: 'Mustache', char: '🥖', anchor: 164, sizeMult: 0.7, offsetY: 0 },
+            { id: 'hotdog', category: 'Mustache', char: '🌭', anchor: 164, sizeMult: 0.7, offsetY: 0 },
+            { id: 'bone', category: 'Mustache', char: '🦴', anchor: 164, sizeMult: 0.6, offsetY: 0 },
+            // Bowtie moved to chin (Anchor 152) and pushed down
+            { id: 'bowtie', category: 'Mustache', char: '🎀', anchor: 152, sizeMult: 0.7, offsetY: 0.2 },
+
+            // MOUTH (10) - Anchor 14 (Lower lip), with negative offset to cover mouth opening
+            { id: 'donut', category: 'Lips', char: '🍩', anchor: 14, sizeMult: 1.1, offsetY: -0.15 },
+            { id: 'watermelon', category: 'Lips', char: '🍉', anchor: 14, sizeMult: 1.1, offsetY: -0.15 },
+            { id: 'taco', category: 'Lips', char: '🌮', anchor: 14, sizeMult: 1.3, offsetY: -0.15 },
+            { id: 'burger', category: 'Lips', char: '🍔', anchor: 14, sizeMult: 1.3, offsetY: -0.15 },
+            { id: 'lollipop', category: 'Lips', char: '🍭', anchor: 14, sizeMult: 1.1, offsetY: -0.15 },
+            { id: 'candy', category: 'Lips', char: '🍬', anchor: 14, sizeMult: 1.1, offsetY: -0.15 },
+            { id: 'drink', category: 'Lips', char: '🥤', anchor: 14, sizeMult: 1.2, offsetY: -0.15 },
+            { id: 'pizza', category: 'Lips', char: '🍕', anchor: 14, sizeMult: 1.2, offsetY: -0.15 },
+            { id: 'hotdog_mouth', category: 'Lips', char: '🌭', anchor: 14, sizeMult: 1.2, offsetY: -0.15 },
+            { id: 'cookie', category: 'Lips', char: '🍪', anchor: 14, sizeMult: 1.1, offsetY: -0.15 },
         ];
 
         const bgData = [
@@ -520,7 +582,7 @@
             categories.forEach(cat => {
                 const title = document.createElement('div');
                 title.className = 'category-title';
-                title.innerText = cat;
+                title.innerText = cat === 'Lips' ? 'Mouth' : cat;
                 container.appendChild(title);
                 const grid = document.createElement('div');
                 grid.className = 'emoji-grid-layout';
@@ -538,7 +600,7 @@
                 catEmojis.forEach(em => {
                     const btn = document.createElement('button');
                     btn.className = `item-btn ${currentEditingConfig[cat] && currentEditingConfig[cat].id === em.id ? 'active' : ''}`;
-                    btn.innerText = em.char;
+                    btn.innerText = em.char || em.charLeft; // Fallback for UI
                     btn.onclick = () => {
                         if (cat === 'Mask') {
                             currentEditingConfig.Mask = em;
@@ -1242,14 +1304,49 @@
                 orderedCategories.forEach(cat => {
                     const emoji = emojiSet[cat];
                     if (!emoji) return;
-                    const anchorPt = landmarks[emoji.anchor];
-                    canvasCtx.save();
-                    canvasCtx.translate(anchorPt.x * canvasElement.width, anchorPt.y * canvasElement.height);
-                    canvasCtx.rotate(angle);
-                    canvasCtx.font = `${faceWidth * emoji.sizeMult}px Arial`; canvasCtx.textAlign = "center";
-                    canvasCtx.textBaseline = emoji.category === 'Hat' ? "bottom" : "middle";
-                    canvasCtx.fillText(emoji.char, 0, faceWidth * emoji.offsetY);
-                    canvasCtx.restore();
+                    
+                    if (emoji.charLeft && emoji.charRight) {
+                        const leftPt = landmarks[emoji.leftAnchor];
+                        if (leftPt) {
+                            canvasCtx.save();
+                            canvasCtx.translate(leftPt.x * canvasElement.width, leftPt.y * canvasElement.height);
+                            canvasCtx.rotate(angle);
+                            canvasCtx.font = `${faceWidth * emoji.sizeMult}px Arial`; canvasCtx.textAlign = "center";
+                            canvasCtx.textBaseline = "middle";
+                            canvasCtx.fillText(emoji.charLeft, 0, faceWidth * emoji.offsetY);
+                            canvasCtx.restore();
+                        }
+                        
+                        const rightPt = landmarks[emoji.rightAnchor];
+                        if (rightPt) {
+                            canvasCtx.save();
+                            canvasCtx.translate(rightPt.x * canvasElement.width, rightPt.y * canvasElement.height);
+                            canvasCtx.rotate(angle);
+                            canvasCtx.font = `${faceWidth * emoji.sizeMult}px Arial`; canvasCtx.textAlign = "center";
+                            canvasCtx.textBaseline = "middle";
+                            canvasCtx.fillText(emoji.charRight, 0, faceWidth * emoji.offsetY);
+                            canvasCtx.restore();
+                        }
+                    } else {
+                        const anchorPt = landmarks[emoji.anchor];
+                        if (anchorPt) {
+                            // Calculate dynamic size based on category
+                            let renderSize = faceWidth * emoji.sizeMult;
+                            if (emoji.category === 'Lips') {
+                                // 61 is left mouth corner, 291 is right mouth corner
+                                const mouthWidth = Math.abs(landmarks[291].x - landmarks[61].x) * canvasElement.width;
+                                renderSize = mouthWidth * emoji.sizeMult;
+                            }
+                            
+                            canvasCtx.save();
+                            canvasCtx.translate(anchorPt.x * canvasElement.width, anchorPt.y * canvasElement.height);
+                            canvasCtx.rotate(angle);
+                            canvasCtx.font = `${renderSize}px Arial`; canvasCtx.textAlign = "center";
+                            canvasCtx.textBaseline = emoji.category === 'Hat' ? "bottom" : "middle";
+                            canvasCtx.fillText(emoji.char, 0, renderSize * emoji.offsetY);
+                            canvasCtx.restore();
+                        }
+                    }
                 });
             }
         }
